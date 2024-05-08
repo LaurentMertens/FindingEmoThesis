@@ -19,6 +19,7 @@ from img_resize_preproc import ImgResize
 from explanations_emonet import get_visualizations, plot_cam
 from pytorch_grad_cam.utils.image import scale_cam_image, scale_accross_batch_and_channels, show_cam_on_image
 
+
 class LocalAnalysis:
     def __init__(self):
         # Load names of OpenImage classes
