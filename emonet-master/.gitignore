@@ -1,0 +1,10 @@
+.pytest_cache/
+build_utils/
+cam_grad_dataset/
+findingemo_dataset/
+/data/
+*.jpg
+*.png
+*.npy
+*.zip
+*.weights
