@@ -117,32 +117,35 @@ def plot_cam(visualization, image, class_label, prob_label, val, aro):
     plt.show()
 
 
-def explanations_emonet(img_path, file_name, show_plot=False):
-    # Instantiations & definitions
-    emonet = EmoNet(b_eval=True)
-    emonet_pp = EmoNetPreProcess()
-    img_tensor, img_loaded = emonet_pp(img_path)
-    img_size = img_loaded.size
-    in_tensor = img_tensor.unsqueeze(0)
-    emo_aro = EmoNetArousal()
-    arousal = emo_aro(in_tensor).item()
-    emo_val = EmoNetValence()
-    valence = emo_val(in_tensor).item()
-    # Images
-    proc_img = np.float32(img_loaded)/255
-    # Model
-    emo_model = emonet.emonet
-    pred = emo_model(in_tensor)
-    max_prob, max_class, class_index = get_most_probable_class(pred)
-    activation_maps = [emo_model.conv5]
-    # Visualization
-    #emonet.prettyprint(pred, b_pc=True)
-    vis = get_visualizations(gradcam=1, gradcampp=0, ablationcam=0, scorecam=0, eigencam=0, liftcam=0, lrpcam=0, limecam=0, guided=0,
-                             image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
-                             class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
-    if show_plot:
-        plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
+class ExplanationsEmonet:
+    def __init__(self):
+        self.emonet = EmoNet(b_eval=True)
+        self.emonet_pp = EmoNetPreProcess()
 
-    return max_class
 
+    def explanations_emonet(self, img_path, file_name, show_plot=False):
+        # Instantiations & definitions
+        img_tensor, img_loaded = self.emonet_pp(img_path)
+        img_size = img_loaded.size
+        in_tensor = img_tensor.unsqueeze(0)
+        emo_aro = EmoNetArousal()
+        arousal = emo_aro(in_tensor).item()
+        emo_val = EmoNetValence()
+        valence = emo_val(in_tensor).item()
+        # Images
+        proc_img = np.float32(img_loaded)/255
+        # Model
+        emo_model = self.emonet.emonet
+        pred = emo_model(in_tensor)
+        max_prob, max_class, class_index = get_most_probable_class(pred)
+        activation_maps = [emo_model.conv5]
+        # Visualization
+        #emonet.prettyprint(pred, b_pc=True)
+        vis = get_visualizations(gradcam=1, gradcampp=0, ablationcam=0, scorecam=0, eigencam=0, liftcam=0, lrpcam=0, limecam=0, guided=0,
+                                 image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
+                                 class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
+        if show_plot:
+            plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
+
+        return max_class
 
