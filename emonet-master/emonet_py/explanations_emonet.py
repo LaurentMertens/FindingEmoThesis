@@ -20,18 +20,6 @@ import alexnet_big
 
 
 
-
-def get_most_probable_class(preds: torch.Tensor):
-    max_prob = preds[0][0]
-    max_class = EmoNet.EMOTIONS[0]
-    for sample in range(preds.shape[0]):
-        for emo_idx in range(20):
-            if preds[sample, emo_idx] > max_prob:
-                max_prob = preds[sample, emo_idx]
-                max_class = EmoNet.EMOTIONS[emo_idx]
-                class_index = emo_idx
-    return 100*max_prob, max_class, class_index
-
 def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam: int, eigencam:int, liftcam:int, lrpcam:int, limecam:int,
                        guided: int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
                        class_index: int, img_size, file_name: str, image_weight: float = 0.5, targets=None):
@@ -143,11 +131,16 @@ class ExplanationsEmonet:
         self.emonet = EmoNet(b_eval=True)
         self.emonet_pp = EmoNetPreProcess()
 
-    def create_output_dataframe(self, file_path, emo, aro, val):
-        output_emonet = pd.DataFrame(columns=self.header)
-        output_emonet.loc[0]
-
-
+    def get_most_probable_class(self, preds: torch.Tensor):
+        max_prob = preds[0][0]
+        max_class = EmoNet.EMOTIONS[0]
+        for sample in range(preds.shape[0]):
+            for emo_idx in range(20):
+                if preds[sample, emo_idx] > max_prob:
+                    max_prob = preds[sample, emo_idx]
+                    max_class = EmoNet.EMOTIONS[emo_idx]
+                    class_index = emo_idx
+        return 100 * max_prob, max_class, class_index
 
     def explanations_emonet(self, img_path, file_name, show_plot=False):
         # Instantiations & definitions
@@ -163,7 +156,7 @@ class ExplanationsEmonet:
         # Model
         emo_model = self.emonet.emonet
         pred = emo_model(in_tensor)
-        max_prob, max_class, class_index = get_most_probable_class(pred)
+        max_prob, max_class, class_index = self.get_most_probable_class(pred)
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)

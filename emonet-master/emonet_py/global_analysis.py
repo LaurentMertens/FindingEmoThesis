@@ -90,9 +90,11 @@ class GlobalAnalysis:
         new_row += [valence, arousal]
         # add the row to the dataframe
         df_emonet.loc[len(df_emonet)] = new_row
-        return df_emonet
+        # extract infos
+        max_prob, max_emotion, class_index = self.expl_emo.get_most_probable_class(emotion)
+        return df_emonet, max_emotion
 
-    def update_yolo_df(self, file_path, df_yolo):
+    def update_yolo_df(self, file_path, max_emotion, df_yolo):
         """
         Update the yolo output dataframe with the yolo output of a new image.
         """
@@ -104,6 +106,8 @@ class GlobalAnalysis:
         new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)
         # insert dir_image_path as first column (one folder + file name only)
         new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
+        # insert most probable emotion
+        new_df_yolo.insert(0, "emotion", max_emotion, True)
         return pd.concat([df_yolo, new_df_yolo], ignore_index=True)
 
     def save_model_outputs(self, directory, total_nb_images, nb_folders_to_process):
@@ -127,9 +131,9 @@ class GlobalAnalysis:
                             file_path = os.path.join(folder_path, image_name)
                             print("Processing:", file_path)
                             # update emonet dataframe with outputs from new image
-                            df_emonet = self.update_emonet_df(file_path, df_emonet)
+                            df_emonet, max_emotion = self.update_emonet_df(file_path, df_emonet)
                             # update yolo dataframe with outputs from new image
-                            df_yolo = self.update_yolo_df(file_path, df_yolo)
+                            df_yolo = self.update_yolo_df(file_path, max_emotion, df_yolo)
                             count_images += 1
                             print(f"Progression: {(count_images / total_nb_images) * 100:0.2f}%")
                         except Exception as e:
