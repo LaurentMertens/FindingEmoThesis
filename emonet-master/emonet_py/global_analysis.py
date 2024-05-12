@@ -26,6 +26,18 @@ import os
 from PIL import Image
 import pandas as pd
 
+# header for EmoNet outputs
+df_emonet_header = ['dir_image_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob',
+                    'emonet_amusement_prob',
+                    'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
+                    'emonet_craving_prob',
+                    'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
+                    'emonet_excitement_prob',
+                    'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
+                    'emonet_romance_prob',
+                    'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
+                    'emonet_arousal']
+
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
 
@@ -53,17 +65,6 @@ class GlobalAnalysis:
     """
     GlobalAnalysis class used to apply the EmoNet and Yolov3 pipeline and extract all outputs in .csv format.
     """
-    # header for EmoNet outputs
-    df_emonet_header = ['dir_image_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob',
-                        'emonet_amusement_prob',
-                        'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
-                        'emonet_craving_prob',
-                        'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
-                        'emonet_excitement_prob',
-                        'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
-                        'emonet_romance_prob',
-                        'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
-                        'emonet_arousal']
 
     def __init__(self):
         self.local_analysis = LocalAnalysis()
@@ -114,9 +115,11 @@ class GlobalAnalysis:
         """
         save to .csv two files containing the outputs of EmoNet (and FindingEmo annotations) and Yolov3 respectively
         """
+        if nb_folders_to_process == None:
+            nb_folders_to_process = len(os.listdir(directory))
         count_images = 0
         # create EmoNet output dataframe with header
-        df_emonet = pd.DataFrame(columns=self.df_emonet_header)
+        df_emonet = pd.DataFrame(columns=df_emonet_header)
         # create Yolo output dataframe
         df_yolo = pd.DataFrame()
         # loop over folders containing the images
@@ -152,6 +155,8 @@ class GlobalAnalysis:
     @staticmethod
     def get_number_of_images(directory, nb_folders_to_process):
         nb_images = 0
+        if nb_folders_to_process == None:
+            nb_folders_to_process = len(os.listdir(directory))
         for folder_name in os.listdir(directory)[:nb_folders_to_process]:
             try:
                 folder_path = os.path.join(directory, folder_name)
