@@ -1,4 +1,7 @@
 import os
+
+import pandas as pd
+
 from emonet import EmoNet, EmoNetPreProcess
 from emonet_arousal import EmoNetArousal
 from emonet_valence import EmoNetValence
@@ -30,7 +33,7 @@ def get_most_probable_class(preds: torch.Tensor):
     return 100*max_prob, max_class, class_index
 
 def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam: int, eigencam:int, liftcam:int, lrpcam:int, limecam:int,
-                       guided:int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
+                       guided: int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
                        class_index: int, img_size, file_name: str, image_weight: float = 0.5, targets=None):
     vis = []
     if gradcam==1:
@@ -103,6 +106,10 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
 
 
 def plot_cam(visualization, image, class_label, prob_label, val, aro):
+    """
+    plot the different localization maps superimposed on image with the most probable class, valence and arousal
+    predicted by EmoNet
+    """
     ncol = len(visualization)+1
     fig, ax = plt.subplots(1, ncol)
     ax[0].imshow(image, interpolation='none')
@@ -118,9 +125,28 @@ def plot_cam(visualization, image, class_label, prob_label, val, aro):
 
 
 class ExplanationsEmonet:
+    header=['img_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob', 'emonet_amusement_prob',
+                 'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
+                 'emonet_craving_prob',
+                 'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
+                 'emonet_excitement_prob',
+                 'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
+                 'emonet_romance_prob',
+                 'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
+                 'emonet_arousal',
+                 'annotation_user', 'annotation_original_img_path', 'annotation_reject', 'annotation_tag',
+                 'annotation_age_group',
+                 'annotation_valence', 'annotation_arousal', 'annotation_emotion', 'annotation_deciding_factors',
+                 'annotation_ambiguity',
+                 'annotation_fmri_candidate', 'annotation_datetime']
     def __init__(self):
         self.emonet = EmoNet(b_eval=True)
         self.emonet_pp = EmoNetPreProcess()
+
+    def create_output_dataframe(self, file_path, emo, aro, val):
+        output_emonet = pd.DataFrame(columns=self.header)
+        output_emonet.loc[0]
+
 
 
     def explanations_emonet(self, img_path, file_name, show_plot=False):
@@ -147,5 +173,5 @@ class ExplanationsEmonet:
         if show_plot:
             plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
 
-        return max_class
+        return pred, arousal, valence
 

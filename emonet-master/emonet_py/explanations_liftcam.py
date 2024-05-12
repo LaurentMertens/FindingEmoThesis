@@ -33,7 +33,7 @@ class CAM_Explanation:
         explanation = min_max_normalize(explanation)
         return explanation
 
-# The later part of a given original prediction model (i.e. F in the main paper)
+# The later part of a given original prediction model
 class Model_Part(nn.Module):
     def __init__(self, model):
         super(Model_Part, self).__init__()

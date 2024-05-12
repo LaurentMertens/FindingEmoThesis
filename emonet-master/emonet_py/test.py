@@ -1,23 +1,35 @@
-from local_analysis import local_analysis
-from explanations_emonet import explanations_emonet
-from explanations_resnet50 import explanations_resnet50
-from global_analysis import print_statistics
-import os
+import os.path
 
-emotions_objects_dict = {}
-file_name = 'friends_parc.jpg'
-file_path = '../data/images/'+file_name
-file_name = os.path.splitext(file_name)[0]
-detected_emotion = explanations_emonet(file_path, file_name, show_plot=False)
-detected_objects = local_analysis(file_path, file_name, show_box=False)
-print(detected_objects)
-"""
-for index, row in detected_objects.iterrows():
-    if detected_emotion in emotions_objects_dict and row['class_label'] in emotions_objects_dict[detected_emotion]:
-        emotions_objects_dict[detected_emotion][row['class_label']] += 1
-    else:
-        emotions_objects_dict[detected_emotion] = {row['class_label']: 1}
+import explanations_emonet, global_analysis, local_analysis, emonet
+import pandas as pd
 
-print(emotions_objects_dict)
-print_statistics(emotions_objects_dict)
-"""
+header = ['image_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob', 'emonet_amusement_prob',
+          'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
+          'emonet_craving_prob',
+          'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
+          'emonet_excitement_prob',
+          'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
+          'emonet_romance_prob',
+          'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
+          'emonet_arousal']
+
+def import_annotations():
+    df_annotations = pd.read_csv('annotations_single.ann')
+    df_annotations = df_annotations.rename(columns={'user': 'ann_user', 'image_path': 'ann_original_image_path',
+                                                    'reject': 'ann_reject', 'tag': 'age_group',
+                                                    'valence': 'ann_valence', 'arousal': 'ann_arousal',
+                                                    'emotion': 'ann_emotion', 'dec_factors': 'ann_dec_factors',
+                                                    'ambiguity': 'ann_ambiguity', 'fmri_candidate': 'ann_fmri_candidate',
+                                                    'datetime': 'ann_datetime'})
+    df_annotations['dir_image_path'] = df_annotations['ann_original_image_path'].apply(get_dir_image_path)
+    return df_annotations
+
+def get_dir_image_path(file_path):
+    return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
+
+
+path = '/Users/youssefdoulfoukar/Desktop/Thesis/PytorchProject/emonet-master/emonet_py'
+
+import_annotations().to_csv('ann_test')
+
+print(get_dir_image_path(path))
