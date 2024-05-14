@@ -27,14 +27,14 @@ from PIL import Image
 import pandas as pd
 
 # header for EmoNet outputs
-df_emonet_header = ['dir_image_path', 'emonet_max_emotion', 'emonet_max_emotion_prob', 'emonet_adoration_prob',
-                    'emonet_aesthetic_appreciation_prob', 'emonet_amusement_prob', 'emonet_anxiety_prob',
-                    'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
-                    'emonet_craving_prob', 'emonet_disgust_prob', 'emonet_empathetic_pain_prob',
-                    'emonet_entrancement_prob', 'emonet_excitement_prob',
-                    'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
-                    'emonet_romance_prob',
-                    'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
+df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_emotion_conf', 'emonet_adoration_conf',
+                    'emonet_aesthetic_appreciation_conf', 'emonet_amusement_conf', 'emonet_anxiety_conf',
+                    'emonet_awe_conf', 'emonet_boredom_conf', 'emonet_confusion_conf',
+                    'emonet_craving_conf', 'emonet_disgust_conf', 'emonet_empathetic_pain_conf',
+                    'emonet_entrancement_conf', 'emonet_excitement_conf',
+                    'emonet_fear_conf', 'emonet_horror_conf', 'emonet_interest_conf', 'emonet_joy_conf',
+                    'emonet_romance_conf',
+                    'emonet_sadness_conf', 'emonet_sexual_desire_conf', 'emonet_surprise_conf', 'emonet_valence',
                     'emonet_arousal']
 
 def get_dir_image_path(file_path):
@@ -103,9 +103,9 @@ class GlobalAnalysis:
         # get new yolo outputs of image
         new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)
         # insert emotion confidence
-        new_df_yolo.insert(0, "emotion_confidence", max_prob, True)
+        new_df_yolo.insert(0, "emonet_emotion_conf", max_prob, True)
         # insert most probable emotion
-        new_df_yolo.insert(0, "emotion", max_emotion, True)
+        new_df_yolo.insert(0, "emonet_emotion", max_emotion, True)
         # insert dir_image_path as first column (one folder + file name only)
         new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
         return pd.concat([df_yolo, new_df_yolo], ignore_index=True)

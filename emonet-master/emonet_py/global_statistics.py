@@ -5,6 +5,7 @@ import json
 import copy
 import seaborn as sns
 import scipy as sp
+import association_metrics as am
 
 
 def save_dictionary(dico, name):
@@ -14,183 +15,99 @@ def save_dictionary(dico, name):
 
 class GlobalStatistics:
 
-    def __init__(self, importance_thres, emo_conf_thres, obj_conf_thres, ann_ambiguity_thres, nb_rows_to_process=None):
-        self.emonet_ann_ouputs = pd.read_csv('emonet_ann_outputs')
+    def __init__(self, importance_thres, emo_conf_thres, obj_conf_thres, ann_ambiguity_thres):
+        self.emonet_ann_outputs = pd.read_csv('emonet_ann_outputs')
         self.yolo_outputs = pd.read_csv('yolo_outputs')
-        self.emo_obj_dict = self.create_emo_obj_dict(importance_thres=importance_thres,
-                                                     emo_conf_thres=emo_conf_thres, obj_conf_thres=obj_conf_thres,
-                                                     nb_rows_to_process=nb_rows_to_process)
-        self.emo_ann_dict = self.create_emo_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
-                                                     emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
-        self.val_emonet_ann_dict = self.create_val_emonet_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
-                                                                   emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
-        self.aro_emonet_ann_dict = self.create_aro_emonet_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
-                                                                   emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
-        self.emo_dec_fact_ann_dict = self.create_emo_dec_fact_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
-                                                                       nb_rows_to_process=nb_rows_to_process)
+        self.importance_thres = importance_thres
+        self.emo_conf_thres = emo_conf_thres
+        self.obj_conf_thres = obj_conf_thres
+        self.ann_ambiguity_thres = ann_ambiguity_thres
 
-    def create_emo_obj_dict(self, importance_thres, emo_conf_thres, obj_conf_thres, nb_rows_to_process=None):
-        """
-        Create a dictionary of the number and type of objects (above a certain threshold of importance)
-        detected per predicted emotion.
-        """
-        dict = {}
-        n = 0
-        # if number of rows not mentioned, whole dictionary is processed
-        if nb_rows_to_process == None:
-            nb_rows_to_process = len(self.yolo_outputs.index)
-        for index, row in self.yolo_outputs.iterrows():
-            if n < nb_rows_to_process:
-                # only consider objects with importance higher than threshold
-                if (row['object_importance'] > importance_thres and row['emotion_confidence'] > emo_conf_thres and
-                        row['object_confidence'] > obj_conf_thres):
-                    if row['emotion'] in dict:
-                        if row['detected_object'] in dict[row['emotion']]:
-                            dict[row['emotion']][row['detected_object']] += 1
-                        else:
-                            dict[row['emotion']][row['detected_object']] = 1
-                    else:
-                        dict[row['emotion']] = {row['detected_object']: 1}
-                if n % 500 == 0:
-                    print('Saving progress...')
-                    save_dictionary(dict, 'emo_obj_dict')
-                    print('dictionary \'emo_obj_dict\' saved...')
-            n += 1
+    def get_emo_obj_df(self):
+        df = self.yolo_outputs.drop(self.yolo_outputs[self.yolo_outputs["object_confidence"] > self.obj_conf_thres and
+                                                      self.yolo_outputs["object_importance"] > self.importance_thres and
+                                                      self.yolo_outputs["emonet_max_emotion_prob"] > self.emo_conf_thres].index)
+        count_df = pd.crosstab(df["emotion"], df["detected_object"])
 
-        return dict
+        return count_df
 
-    def create_emo_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
-        """
-        Create a dictionary of the number and categories of emotions predicted by EmoNet per emotion
-        annotated in FindingEmo.
-        """
-        dict = {}
-        n = 0
-        # if number of rows not mentioned, whole dictionary is processed
-        if nb_rows_to_process == None:
-            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
-        for index, row in self.emonet_ann_ouputs.iterrows():
-            if n < nb_rows_to_process:
-                # only consider objects with importance higher than threshold
-                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
-                    if row['ann_emotion'] in dict:
-                        if row['emonet_max_emotion'] in dict[row['ann_emotion']]:
-                            dict[row['ann_emotion']][row['emonet_max_emotion']] += 1
-                        else:
-                            dict[row['ann_emotion']][row['emonet_max_emotion']] = 1
-                    else:
-                        dict[row['ann_emotion']] = {row['emonet_max_emotion']: 1}
-                if n % 500 == 0:
-                    print('Saving progress...')
-                    save_dictionary(dict, 'emo_ann_dict')
-                    print('dictionary \'emo_ann_dict\' saved...')
-            n += 1
+    def get_emo_ann_df(self,):
+        df = self.emonet_ann_ouputs.drop(self.emonet_ann_ouputs[
+                                             self.emonet_ann_ouputs["ann_ambiguity"] > self.ann_ambiguity_thres and
+                                             self.emonet_ann_ouputs["emonet_emotion_conf"] > self.emo_conf_thres].index)
+        count_df = pd.crosstab(df["emonet_emotion"], df["ann_emotion"])
 
-        return dict
+        return count_df
 
-    def create_emo_dec_fact_ann_dict(self, ann_ambiguity_thres, nb_rows_to_process=None):
-        """
-        Create a dictionary of the annotated deciding factors per annotated emotion in FindingEmo.
-        """
-        dict = {}
-        n = 0
-        # if number of rows not mentioned, whole dictionary is processed
-        if nb_rows_to_process == None:
-            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
-        for index, row in self.emonet_ann_ouputs.iterrows():
-            if n < nb_rows_to_process:
-                # only consider annotated emotions below the ambiguity threshold
-                if row['ann_ambiguity'] < ann_ambiguity_thres:
-                    if row['ann_emotion'] in dict:
-                        for dec_fact in row['ann_dec_factors'].split(','):
-                            if dec_fact in dict[row['ann_emotion']]:
-                                dict[row['ann_emotion']][dec_fact] += 1
-                            else:
-                                dict[row['ann_emotion']][dec_fact] = 1
-                    else:
-                        for dec_fact in row['ann_dec_factors'].split(','):
-                            dict[row['ann_emotion']] = {dec_fact: 1}
-                if n % 500 == 0:
-                    print('Saving progress...')
-                    save_dictionary(dict, 'emo_dec_fact_ann_dict')
-                    print('dictionary \'emo_dec_fact_ann_dict\' saved...')
-            n += 1
+    def get_obj_ann_df(self,):
+        merged_df = pd.merge(self.emonet_ann_ouputs, self.yolo_outputs, on='dir_image_path')
+        df = merged_df.drop(merged_df[merged_df["ann_ambiguity"] > self.ann_ambiguity_thres and
+                                      merged_df["emonet_emotion_conf"] > self.emo_conf_thres and
+                                      merged_df["object_confidence"] > self.obj_conf_thres and
+                                      merged_df["object_importance"] > self.importance_thres]print(.index)
+        count_df = pd.crosstab(df["ann_emotion"], df["detected_object"])
 
-        return dict
+        return count_df
+
+    def get_emo_fact_df(self):
+        df = self.emonet_ann_ouputs.drop(self.emonet_ann_ouputs[
+                                             self.emonet_ann_ouputs["ann_ambiguity"] > self.ann_ambiguity_thres and
+                                             self.emonet_ann_ouputs["emonet_emotion_conf"] > self.emo_conf_thres].index)
+        count_df = pd.crosstab(df["emonet_emotion"], df["ann_emotion"])
+        # STILL NEED TO SPLIT THE DEC_FACTORS
+        return count_df
 
 
-    def create_aro_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
-        """
-        Create a dictionary of the arousal predicted by EmoNet vs the arousal annotated in FindingEmo
-        for each image.
-        """
-        dict = {}
-        n = 0
-        # if number of rows not mentioned, whole dictionary is processed
-        if nb_rows_to_process == None:
-            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
-        for index, row in self.emonet_ann_ouputs.iterrows():
-            if n < nb_rows_to_process:
-                # only consider objects with importance higher than threshold
-                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
-                    dict[row['emonet_arousal']] = row['ann_arousal']
-                if n % 500 == 0:
-                    print('Saving progress...')
-                    save_dictionary(dict, 'aro_emonet_ann_dict')
-                    print('dictionary \'aro_emonet_ann_dict\' saved...')
-            n += 1
+    def get_aro_df(self):
+        df = self.emonet_ann_ouputs.drop(self.emonet_ann_ouputs[
+                                             self.emonet_ann_ouputs["ann_ambiguity"] > self.ann_ambiguity_thres and
+                                             self.emonet_ann_ouputs["emonet_emotion_conf"] > self.emo_conf_thres].index)
 
-        return dict
+        return df[["emonet_arousal","ann_arousal"]]
 
-    def create_val_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
-        """
-        Create a dictionary of the valence predicted by EmoNet vs the valence annotated in FindingEmo
-        for each image.
-        """
-        dict = {}
-        n = 0
-        # if number of rows not mentioned, whole dictionary is processed
-        if nb_rows_to_process == None:
-            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
-        for index, row in self.emonet_ann_ouputs.iterrows():
-            if n < nb_rows_to_process:
-                # only consider objects with importance higher than threshold
-                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
-                    dict[row['emonet_valence']] = row['ann_valence']
-                if n % 500 == 0:
-                    print('Saving progress...')
-                    save_dictionary(dict, 'val_emonet_ann_dict')
-                    print('dictionary \'val_emonet_ann_dict\' saved...')
-            n += 1
+    def get_val_df(self):
+        df = self.emonet_ann_ouputs.drop(self.emonet_ann_ouputs[
+                                             self.emonet_ann_ouputs["ann_ambiguity"] > self.ann_ambiguity_thres and
+                                             self.emonet_ann_ouputs["emonet_emotion_conf"] > self.emo_conf_thres].index)
 
-        return dict
+        return df[["emonet_valence","ann_valence"]]
 
     def plot_dict_bars(self, dict):
         """
         Plot the distributions of detected objects per emotion category from obj_emo dictionary.
         """
         df = pd.DataFrame(dict).transpose()
-        ax = df.plot(kind='bar', legend="False")
+        ax = df.plot(kind='barh', legend=False, cmap='coolwarm')
+        #ax.set_ylim([0, 1])
         # extract the legend labels
         handles, legend_labels = ax.get_legend_handles_labels()
         # iterate through the zipped containers and legend_labels
         for c, l in zip(ax.containers, legend_labels):
-            # customize the labels: only plot values greater than 0 and append the legend label
-            labels = [f'{l}: {w * 100:0.0f}%' if (w := v.get_width()) > 0 else '' for v in c]
+            # get labels
+            labels = [l if (v.get_width()) > 0 else '' for v in c]
             # add the bar annotation
-            ax.bar_label(c, labels=labels, label_type='center')
-        plt.show()
+            ax.bar_label(c, labels=labels, label_type='edge', rotation='horizontal', fontsize=5)
+        # set colors
+        #for i, bar in enumerate(ax.patches):
+        #    bar.set_color('b')
 
-    def plot_dict_heatmap(self, emo_obj_freq_dict):
+    def plot_heatmap(self, emo_obj_freq_dict):
         sns.heatmap(pd.DataFrame(emo_obj_freq_dict), annot=True, cmap='coolwarm')
         plt.show()
 
-    def plot_dict_scatter(self, dict):
-        plt.scatter(dict.keys(), dict.values())
+    def plot_scatter_size_plot(self, df):
+        c = pd.crosstab(df.emotion, df.detected_object).stack().reset_index(name='C')
+        c.plot.scatter('emotion', 'detected_object', s=c.C * 10)
+
+    def plot_scatter(self, dict, x_legend, y_legend):
+        fig, ax = plt.subplots()
+        ax.scatter(dict.keys(), dict.values(), c="steelblue")
+        ax.set_xlabel(x_legend), ax.set_ylabel(y_legend)
+        plt.tight_layout()
         plt.show()
 
 
-    def get_emo_obj_freq(self, dico):
+    def get_dict_freq(self, dico):
         """
         Print and return frequencies of detected objects per emotion category from the obj_emo dictionary.
         """
@@ -206,31 +123,48 @@ class GlobalStatistics:
             print("________________")
         return emo_obj_freq_dict
 
+def cramers_correlation_matrix(df):
+    """
+    The Association matrix using the Cramer's V method. (only two variables normally so using a matrix is debatable)
+    """
+    # Convert you str columns to Category columns
+    df = df.apply(
+        lambda x: x.astype("category") if x.dtype == "O" else x)
+    # Initialize a CamresV object using you pandas.DataFrame
+    cramersv = am.CramersV(df)
+    # will return a pairwise matrix filled with Cramer's V, where columns and index are
+    # the categorical variables of the passed pandas.DataFrame
+    cramersv.fit()
 
+
+def remove_obj_cat(emo_obj_freq_dict, category):
+    for emo in emo_obj_freq_dict:
+        emo_obj_freq_dict[emo].pop(category)
+    return emo_obj_freq_dict
 
 if __name__ == '__main__':
-    gs = GlobalStatistics(importance_thres=0.1, emo_conf_thres=0.5, obj_conf_thres=0.5,
+    gs = GlobalStatistics(importance_thres=0.1, emo_conf_thres=0.5, obj_conf_thres=0.3,
                           ann_ambiguity_thres=4, nb_rows_to_process=None)
     # analysis 1 : detected objects (Yolo & GradCam) vs predicted emotions (EmoNet)
-    emo_obj_dict = gs.emo_obj_dict
-    emo_obj_freq_dict = gs.get_emo_obj_freq(emo_obj_dict)
-    gs.plot_dict_bars(emo_obj_freq_dict)
+    emo_obj_df = gs.get_emo_obj_df()
+    #cram_corr_emo_obj = sp.stats.contingency.association(emo_obj_df, 'cramer'))
+    #chi_square_corr_emo_obj = sp.states.chi2_contingency(emo_obj_df)
 
     # analysis 2 : predicted emotion (EmoNet) vs annotated emotion (ANN)
-    emo_ann_dict = gs.emo_ann_dict
-    emo_ann_freq_dict = gs.get_emo_obj_freq(emo_ann_dict)
-    gs.plot_dict_heatmap(emo_ann_freq_dict)
+    emo_ann_df = gs.get_emo_ann_df()
 
     # analysis 3 : predicted valence (EmoNet) vs annotated valence (ANN)
-    val_emonet_ann_dict = gs.val_emonet_ann_dict
-    gs.plot_dict_scatter(val_emonet_ann_dict)
-    print(sp.stats.pearsonr(list(val_emonet_ann_dict.keys()), list(val_emonet_ann_dict.values())))
+    val_emonet_ann_df = gs.get_val_df()
+    #sp.stats.pearsonr(val_emonet_ann_df["emonet_valence"], val_emonet_ann_df["ann_valence"])
 
     # analysis 4 : predicted arousal (EmoNet) vs annotated arousal (ANN)
-    aro_emonet_ann_dict = gs.aro_emonet_ann_dict
-    gs.plot_dict_scatter(aro_emonet_ann_dict)
-    print(sp.stats.pearsonr(list(aro_emonet_ann_dict.keys()), list(aro_emonet_ann_dict.values())))
+    aro_emonet_ann_df = gs.get_aro_df()
+    #sp.stats.pearsonr(aro_emonet_ann_df["emonet_arousal"], aro_emonet_ann_df["ann_arousal"])
 
     # analysis 5 : annotated emotion (ANN) vs annotated deciding factors (ANN) (to compare with analysis 1)
-    emo_dec_fact_ann_dict = gs.emo_dec_fact_ann_dict
-    gs.plot_dict_bars(emo_obj_freq_dict)
+    emo_fact_ann_df = gs.get_emo_fact_df()
+    #cram_corr_emo_fact = sp.stats.contingency.association(emo_fact_ann_df, 'cramer'))
+
+    # analysis 6 : detected objects (Yolo) vs annotated emotions (ANN)
+    obj_ann_df = gs.get_obj_ann_df()
+    #cram_corr_emo_fact = sp.stats.contingency.association(obj_ann_df, 'cramer'))
