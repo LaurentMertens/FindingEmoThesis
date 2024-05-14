@@ -20,6 +20,12 @@ class GlobalStatistics:
                                                      nb_rows_to_process=nb_rows_to_process)
         self.emo_ann_dict = self.create_emo_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
                                                      emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
+        self.val_emonet_ann_dict = self.create_val_emonet_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
+                                                                   emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
+        self.aro_emonet_ann_dict = self.create_aro_emonet_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
+                                                                   emo_conf_thres=emo_conf_thres, nb_rows_to_process=nb_rows_to_process)
+        self.emo_dec_fact_ann_dict = self.create_emo_dec_fact_ann_dict(ann_ambiguity_thres=ann_ambiguity_thres,
+                                                                       nb_rows_to_process=nb_rows_to_process)
 
     def create_emo_obj_dict(self, importance_thres, emo_conf_thres, obj_conf_thres, nb_rows_to_process=None):
         """
@@ -45,8 +51,8 @@ class GlobalStatistics:
                         dict[row['emotion']] = {row['detected_object']: 1}
                 if n % 500 == 0:
                     print('Saving progress...')
-                    save_dictionary(dict, 'objects_emotions_dict')
-                    print('dictionary \'objects_emotions_dict\' saved...')
+                    save_dictionary(dict, 'emo_obj_dict')
+                    print('dictionary \'emo_obj_dict\' saved...')
             n += 1
 
         return dict
@@ -74,18 +80,96 @@ class GlobalStatistics:
                         dict[row['ann_emotion']] = {row['emonet_max_emotion']: 1}
                 if n % 500 == 0:
                     print('Saving progress...')
-                    save_dictionary(dict, 'objects_emotions_dict')
-                    print('dictionary \'objects_emotions_dict\' saved...')
+                    save_dictionary(dict, 'emo_ann_dict')
+                    print('dictionary \'emo_ann_dict\' saved...')
             n += 1
 
         return dict
 
-    def plot_emo_obj_stats(self, data):
+    def create_emo_dec_fact_ann_dict(self, ann_ambiguity_thres, nb_rows_to_process=None):
+        """
+        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
+        per predicted emotion.
+        """
+        dict = {}
+        n = 0
+        # if number of rows not mentioned, whole dictionary is processed
+        if nb_rows_to_process == None:
+            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
+        for index, row in self.emonet_ann_ouputs.iterrows():
+            if n < nb_rows_to_process:
+                # only consider annotated emotions below the ambiguity threshold
+                if row['ann_ambiguity'] < ann_ambiguity_thres:
+                    if row['ann_emotion'] in dict:
+                        for dec_fact in row['ann_dec_factors'].split(','):
+                            if dec_fact in dict[row['ann_emotion']]:
+                                dict[row['ann_emotion']][dec_fact] += 1
+                            else:
+                                dict[row['ann_emotion']][dec_fact] = 1
+                    else:
+                        for dec_fact in row['ann_dec_factors'].split(','):
+                            dict[row['ann_emotion']] = {dec_fact: 1}
+                if n % 500 == 0:
+                    print('Saving progress...')
+                    save_dictionary(dict, 'emo_dec_fact_ann_dict')
+                    print('dictionary \'emo_dec_fact_ann_dict\' saved...')
+            n += 1
+
+        return dict
+
+
+    def create_aro_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
+        """
+        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
+        per predicted emotion.
+        """
+        dict = {}
+        n = 0
+        # if number of rows not mentioned, whole dictionary is processed
+        if nb_rows_to_process == None:
+            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
+        for index, row in self.emonet_ann_ouputs.iterrows():
+            if n < nb_rows_to_process:
+                # only consider objects with importance higher than threshold
+                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
+                    dict[row['emonet_arousal']] = row['ann_arousal']
+                if n % 500 == 0:
+                    print('Saving progress...')
+                    save_dictionary(dict, 'aro_emonet_ann_dict')
+                    print('dictionary \'aro_emonet_ann_dict\' saved...')
+            n += 1
+
+        return dict
+
+    def create_val_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
+        """
+        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
+        per predicted emotion.
+        """
+        dict = {}
+        n = 0
+        # if number of rows not mentioned, whole dictionary is processed
+        if nb_rows_to_process == None:
+            nb_rows_to_process = len(self.emonet_ann_ouputs.index)
+        for index, row in self.emonet_ann_ouputs.iterrows():
+            if n < nb_rows_to_process:
+                # only consider objects with importance higher than threshold
+                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
+                    dict[row['emonet_valence']] = row['ann_valence']
+                if n % 500 == 0:
+                    print('Saving progress...')
+                    save_dictionary(dict, 'val_emonet_ann_dict')
+                    print('dictionary \'val_emonet_ann_dict\' saved...')
+            n += 1
+
+        return dict
+
+    def plot_dict_bars(self, data):
         """
         Plot the distributions of detected objects per emotion category from obj_emo dictionary.
         """
         # Create subplots
-        fig, axs = plt.subplots(2, 3, figsize=(15, 10))
+        fig, axs = plt.subplots(3, 3, figsize=(15, 10))
         axs = axs.ravel()
         fig.suptitle("relative frequency of objects per emotion")
         # Plotting pie charts for each emotion
@@ -108,6 +192,11 @@ class GlobalStatistics:
     def plot_dict_heatmap(self, emo_obj_freq_dict):
         seaborn.heatmap(pd.DataFrame(emo_obj_freq_dict))
         plt.show()
+
+    def plot_dict_scatter(self, dict):
+        plt.scatter(dict.keys(), dict.values())
+        plt.show()
+
 
     def get_emo_obj_freq(self, dico):
         """
@@ -141,5 +230,11 @@ if __name__ == '__main__':
     emo_obj_freq_dict = gs.get_emo_obj_freq(emo_obj_dict)
     emo_ann_dict = gs.emo_ann_dict
     emo_ann_freq_dict = gs.get_emo_obj_freq(emo_ann_dict)
-    gs.plot_dict_heatmap(emo_obj_freq_dict)
-    gs.plot_dict_heatmap(emo_ann_freq_dict)
+    val_emonet_ann_dict = gs.val_emonet_ann_dict
+    aro_emonet_ann_dict = gs.aro_emonet_ann_dict
+    emo_dec_fact_ann_dict = gs.emo_dec_fact_ann_dict
+    print(emo_dec_fact_ann_dict)
+    #gs.plot_dict_heatmap(emo_obj_freq_dict)
+    #gs.plot_dict_heatmap(emo_ann_freq_dict)
+    #gs.plot_dict_scatter(val_emonet_ann_dict)
+    #gs.plot_dict_scatter(aro_emonet_ann_dict)
