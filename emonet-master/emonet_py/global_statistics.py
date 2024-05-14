@@ -3,7 +3,9 @@ import emonet
 import matplotlib.pyplot as plt
 import json
 import copy
-import seaborn
+import seaborn as sns
+import scipy as sp
+
 
 def save_dictionary(dico, name):
     with open(f"{name}.json", "w") as file:
@@ -29,8 +31,8 @@ class GlobalStatistics:
 
     def create_emo_obj_dict(self, importance_thres, emo_conf_thres, obj_conf_thres, nb_rows_to_process=None):
         """
-        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
-        per predicted emotion.
+        Create a dictionary of the number and type of objects (above a certain threshold of importance)
+        detected per predicted emotion.
         """
         dict = {}
         n = 0
@@ -59,8 +61,8 @@ class GlobalStatistics:
 
     def create_emo_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
         """
-        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
-        per predicted emotion.
+        Create a dictionary of the number and categories of emotions predicted by EmoNet per emotion
+        annotated in FindingEmo.
         """
         dict = {}
         n = 0
@@ -88,8 +90,7 @@ class GlobalStatistics:
 
     def create_emo_dec_fact_ann_dict(self, ann_ambiguity_thres, nb_rows_to_process=None):
         """
-        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
-        per predicted emotion.
+        Create a dictionary of the annotated deciding factors per annotated emotion in FindingEmo.
         """
         dict = {}
         n = 0
@@ -120,8 +121,8 @@ class GlobalStatistics:
 
     def create_aro_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
         """
-        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
-        per predicted emotion.
+        Create a dictionary of the arousal predicted by EmoNet vs the arousal annotated in FindingEmo
+        for each image.
         """
         dict = {}
         n = 0
@@ -143,8 +144,8 @@ class GlobalStatistics:
 
     def create_val_emonet_ann_dict(self, ann_ambiguity_thres, emo_conf_thres, nb_rows_to_process=None):
         """
-        Create a dictionary of a count of the detected objects (above a certain threshold of importance)
-        per predicted emotion.
+        Create a dictionary of the valence predicted by EmoNet vs the valence annotated in FindingEmo
+        for each image.
         """
         dict = {}
         n = 0
@@ -164,33 +165,24 @@ class GlobalStatistics:
 
         return dict
 
-    def plot_dict_bars(self, data):
+    def plot_dict_bars(self, dict):
         """
         Plot the distributions of detected objects per emotion category from obj_emo dictionary.
         """
-        # Create subplots
-        fig, axs = plt.subplots(3, 3, figsize=(15, 10))
-        axs = axs.ravel()
-        fig.suptitle("relative frequency of objects per emotion")
-        # Plotting pie charts for each emotion
-        for i, (emotion, obj_count) in enumerate(data.items()):
-            objects = list(obj_count.keys())
-            count = list(obj_count.values())
-            # Plotting
-            axs[i].bar(objects, count, width=0.5, bottom=0, align='center')
-            axs[i].set_title(f'{emotion}')
-            # setting labels vertically
-            axs[i].tick_params(axis='x', labelrotation=90)
-            # set y scale between 0 and 1
-            axs[i].set_ylim(0, 1)
-
-        # Adjust layout
-        plt.tight_layout()
-        # Show plot
+        df = pd.DataFrame(dict).transpose()
+        ax = df.plot(kind='bar', legend="False")
+        # extract the legend labels
+        handles, legend_labels = ax.get_legend_handles_labels()
+        # iterate through the zipped containers and legend_labels
+        for c, l in zip(ax.containers, legend_labels):
+            # customize the labels: only plot values greater than 0 and append the legend label
+            labels = [f'{l}: {w * 100:0.0f}%' if (w := v.get_width()) > 0 else '' for v in c]
+            # add the bar annotation
+            ax.bar_label(c, labels=labels, label_type='center')
         plt.show()
 
     def plot_dict_heatmap(self, emo_obj_freq_dict):
-        seaborn.heatmap(pd.DataFrame(emo_obj_freq_dict))
+        sns.heatmap(pd.DataFrame(emo_obj_freq_dict), annot=True, cmap='coolwarm')
         plt.show()
 
     def plot_dict_scatter(self, dict):
@@ -200,7 +192,7 @@ class GlobalStatistics:
 
     def get_emo_obj_freq(self, dico):
         """
-        Print frequencies of detected objects per emotion category from the obj_emo dictionary.
+        Print and return frequencies of detected objects per emotion category from the obj_emo dictionary.
         """
         emo_obj_freq_dict = copy.deepcopy(dico)
         for emotion in dico:
@@ -214,27 +206,31 @@ class GlobalStatistics:
             print("________________")
         return emo_obj_freq_dict
 
-    def emonet_ann_analysis(self):
-        """
-        Analyze correlations between EmoNet predictions and FindingEmo annotations.
-        """
-        pass
-
-
 
 
 if __name__ == '__main__':
     gs = GlobalStatistics(importance_thres=0.1, emo_conf_thres=0.5, obj_conf_thres=0.5,
                           ann_ambiguity_thres=4, nb_rows_to_process=None)
+    # analysis 1 : detected objects (Yolo & GradCam) vs predicted emotions (EmoNet)
     emo_obj_dict = gs.emo_obj_dict
     emo_obj_freq_dict = gs.get_emo_obj_freq(emo_obj_dict)
+    gs.plot_dict_bars(emo_obj_freq_dict)
+
+    # analysis 2 : predicted emotion (EmoNet) vs annotated emotion (ANN)
     emo_ann_dict = gs.emo_ann_dict
     emo_ann_freq_dict = gs.get_emo_obj_freq(emo_ann_dict)
+    gs.plot_dict_heatmap(emo_ann_freq_dict)
+
+    # analysis 3 : predicted valence (EmoNet) vs annotated valence (ANN)
     val_emonet_ann_dict = gs.val_emonet_ann_dict
+    gs.plot_dict_scatter(val_emonet_ann_dict)
+    print(sp.stats.pearsonr(list(val_emonet_ann_dict.keys()), list(val_emonet_ann_dict.values())))
+
+    # analysis 4 : predicted arousal (EmoNet) vs annotated arousal (ANN)
     aro_emonet_ann_dict = gs.aro_emonet_ann_dict
+    gs.plot_dict_scatter(aro_emonet_ann_dict)
+    print(sp.stats.pearsonr(list(aro_emonet_ann_dict.keys()), list(aro_emonet_ann_dict.values())))
+
+    # analysis 5 : annotated emotion (ANN) vs annotated deciding factors (ANN) (to compare with analysis 1)
     emo_dec_fact_ann_dict = gs.emo_dec_fact_ann_dict
-    print(emo_dec_fact_ann_dict)
-    #gs.plot_dict_heatmap(emo_obj_freq_dict)
-    #gs.plot_dict_heatmap(emo_ann_freq_dict)
-    #gs.plot_dict_scatter(val_emonet_ann_dict)
-    #gs.plot_dict_scatter(aro_emonet_ann_dict)
+    gs.plot_dict_bars(emo_obj_freq_dict)
