@@ -73,7 +73,7 @@ class LocalAnalysis:
             bounded_region = heatmap[y_min:y_max, x_min:x_max]
             # define importance as the average activation inside that region
             importance.append(np.mean(bounded_region))
-        df["importance"] = importance
+        df["object_importance"] = importance
         return df
 
     def show_yolo_output(self, pil_image, dataframe):
@@ -83,31 +83,39 @@ class LocalAnalysis:
         Perform local analysis on single image.
         """
         img_path = os.path.join(file_path)
+
         # load the corresponding grad-cam heatmap
         grayscale_cam = np.load("cam_grad_dataset/cam_grad_"+file_name+".npy")
         with torch.no_grad():
             with open(img_path, 'rb') as f:
                 img = Image.open(f).convert('RGB')
             img_tensor = self.transform(img)
+
             # resize heatmap to input image
             original_size_img = img.size
             grayscale_cam = cv2.resize(grayscale_cam, original_size_img)
             grayscale_cam_pil = Image.fromarray(grayscale_cam)
             grayscale_cam_tensor = self.transform(grayscale_cam_pil)
             grayscale_cam_scaled = grayscale_cam_tensor.numpy()[0, :]
+
             # get output of Yolo
             output_tensor = self.model(img_tensor.unsqueeze(0))
+
             # post-processing
             output_df = self.post(output_tensor)
             proc_img = img_tensor.cpu().numpy().transpose(1, 2, 0)
-            # superimpose image and gradcam heatap
+
+            # superimpose image and gradcam heatmap
             cam = show_cam_on_image(proc_img, grayscale_cam_scaled, use_rgb=True)
             pil_img = Image.fromarray(cam)
-            # add importance of bouding boxes
+
+            # add importance of bounding boxes
             df_complete = self.add_importance(output_df, grayscale_cam_scaled)
+
             # rename 'class_label' to 'detected_object' for more clarity later
-            df_complete = df_complete.rename(columns={'class_label': 'detected_object'})
-            df_sorted = df_complete.sort_values(by="importance", ascending=False)
+            df_complete = df_complete.rename(columns={'class_label': 'detected_object',
+                                                      'confidence': 'object_confidence'})
+            df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
             if show_output:
                 self.show_yolo_output(pil_img, df_sorted)
 

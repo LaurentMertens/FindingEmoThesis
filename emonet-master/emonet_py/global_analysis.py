@@ -27,7 +27,7 @@ from PIL import Image
 import pandas as pd
 
 # header for EmoNet outputs
-df_emonet_header = ['dir_image_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob',
+df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob',
                     'emonet_amusement_prob',
                     'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
                     'emonet_craving_prob',
@@ -48,7 +48,7 @@ def merge_annotations(df_emonet):
     df_annotations = pd.read_csv('annotations_single.ann')
     # modify annotations header to distinguish from EmoNet outputs
     df_annotations = df_annotations.rename(columns={'user': 'ann_user', 'image_path': 'ann_original_image_path',
-                                                    'reject': 'ann_reject', 'tag': 'age_group',
+                                                    'reject': 'ann_reject', 'age': 'age_group',
                                                     'valence': 'ann_valence', 'arousal': 'ann_arousal',
                                                     'emotion': 'ann_emotion', 'dec_factors': 'ann_dec_factors',
                                                     'ambiguity': 'ann_ambiguity',
@@ -80,22 +80,21 @@ class GlobalAnalysis:
         # define dir_image_path as part of the path containing file and its folder
         dir_image_path = get_dir_image_path(file_path)
         # get outputs of EmoNet
-        emotion, arousal, valence = self.expl_emo.explanations_emonet(file_path, image_name)
-        # first element of the new row is the image path
-        new_row = [dir_image_path]
+        emotion_tensor, max_prob, arousal, valence = self.expl_emo.explanations_emonet(file_path, image_name)
+        emotion = emotion_tensor.item()
+        # first elements of the new row are the image path and predicted emotion
+        new_row = [dir_image_path, emotion]
         # append probabilities for the output tensor emotion
-        for sample in range(emotion.shape[0]):
+        for sample in range(emotion_tensor.shape[0]):
             for emo_idx in range(20):
-                new_row.append(emotion[sample, emo_idx].item())
+                new_row.append(emotion_tensor[sample, emo_idx].item())
         # add valence and arousal
         new_row += [valence, arousal]
         # add the row to the dataframe
         df_emonet.loc[len(df_emonet)] = new_row
-        # extract infos
-        max_prob, max_emotion, class_index = self.expl_emo.get_most_probable_class(emotion)
-        return df_emonet, max_emotion
+        return df_emonet, emotion, max_prob
 
-    def update_yolo_df(self, file_path, max_emotion, df_yolo):
+    def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo):
         """
         Update the yolo output dataframe with the yolo output of a new image.
         """
@@ -105,18 +104,18 @@ class GlobalAnalysis:
         dir_image_path = get_dir_image_path(file_path)
         # get new yolo outputs of image
         new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)
-        # insert dir_image_path as first column (one folder + file name only)
-        new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
+        # insert emotion confidence
+        new_df_yolo.insert(0, "emotion_confidence", max_prob, True)
         # insert most probable emotion
         new_df_yolo.insert(0, "emotion", max_emotion, True)
+        # insert dir_image_path as first column (one folder + file name only)
+        new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
         return pd.concat([df_yolo, new_df_yolo], ignore_index=True)
 
-    def save_model_outputs(self, directory, total_nb_images, nb_folders_to_process):
+    def save_model_outputs(self, directory, nb_images, nb_folders_to_process):
         """
         save to .csv two files containing the outputs of EmoNet (and FindingEmo annotations) and Yolov3 respectively
         """
-        if nb_folders_to_process == None:
-            nb_folders_to_process = len(os.listdir(directory))
         count_images = 0
         # create EmoNet output dataframe with header
         df_emonet = pd.DataFrame(columns=df_emonet_header)
@@ -133,14 +132,22 @@ class GlobalAnalysis:
                         try:
                             file_path = os.path.join(folder_path, image_name)
                             print("Processing:", file_path)
+
                             # update emonet dataframe with outputs from new image
-                            df_emonet, max_emotion = self.update_emonet_df(file_path, df_emonet)
+                            df_emonet, max_emotion, max_prob = self.update_emonet_df(file_path, df_emonet)
+
                             # update yolo dataframe with outputs from new image
-                            df_yolo = self.update_yolo_df(file_path, max_emotion, df_yolo)
+                            df_yolo = self.update_yolo_df(file_path, max_emotion, max_prob, df_yolo)
+
                             count_images += 1
-                            print(f"Progression: {(count_images / total_nb_images) * 100:0.2f}%")
+                            print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")
                         except Exception as e:
                             print(f'Error processing: {folder_path + image_name} : {e}')
+                if count_images % 200 == 0:
+                    print('Saving progress...')
+                    df_emonet.to_csv('df_emonet_outputs')
+                    df_yolo.to_csv('yolo_outputs')
+                    print('df_emonet and df_yolo saved to \'df_emonet_outputs.csv\' and \'yolo_outputs.csv\'')
             except Exception as e:
                 print(f'Error processing: {directory + folder_name} : {e}')
         # merge modified annotations with emonet dataframe
@@ -149,6 +156,7 @@ class GlobalAnalysis:
         df_emonet_ann.to_csv('emonet_ann_outputs')
         # safe yolo outputs dataframe as .csv
         df_yolo.to_csv('yolo_outputs')
+        print('df_emonet_ann and df_yolo saved to \'emonet_ann_outputs.csv\' and \'yolo_outputs.csv\'...')
 
         return count_images
 
@@ -156,7 +164,7 @@ class GlobalAnalysis:
     def get_number_of_images(directory, nb_folders_to_process):
         nb_images = 0
         if nb_folders_to_process == None:
-            nb_folders_to_process = len(os.listdir(directory))
+            nb_folders_to_process = ga.get_number_of_folders(directory)
         for folder_name in os.listdir(directory)[:nb_folders_to_process]:
             try:
                 folder_path = os.path.join(directory, folder_name)
@@ -168,12 +176,26 @@ class GlobalAnalysis:
                 continue
         return nb_images
 
+    @staticmethod
+    def get_number_of_folders(directory):
+        return len(os.listdir(directory))
 
 if __name__ == '__main__':
+    # instantiation
     ga = GlobalAnalysis()
-    nb_folders_to_process = 10
+
+    # path of directory containing all folders, each with images
     directory_path = os.path.join('findingemo_dataset')
-    total_number_images = ga.get_number_of_images(directory_path, nb_folders_to_process)
-    print("Total number of images = ", total_number_images)
-    nb_img_processed = ga.save_model_outputs(directory_path, total_number_images, nb_folders_to_process)
+    # get info
+    total_number_folders = ga.get_number_of_folders(directory_path)
+    print("Total number of folders = ", total_number_folders)
+
+    # set nb of folders to process
+    nb_folders_to_process = 10
+    # get nb of images to process
+    nb_images_to_process = ga.get_number_of_images(directory_path, nb_folders_to_process)
+    print("Total number of images to process = ", nb_images_to_process)
+
+    # save model outputs & get number of images actually processed
+    nb_img_processed = ga.save_model_outputs(directory_path, nb_images_to_process, nb_folders_to_process)
     print("Total number of images processed: ", nb_img_processed)

@@ -140,7 +140,7 @@ class ExplanationsEmonet:
                     max_prob = preds[sample, emo_idx]
                     max_class = EmoNet.EMOTIONS[emo_idx]
                     class_index = emo_idx
-        return 100 * max_prob, max_class, class_index
+        return max_prob.item(), max_class, class_index
 
     def explanations_emonet(self, img_path, file_name, show_plot=False):
         # Instantiations & definitions
@@ -166,5 +166,5 @@ class ExplanationsEmonet:
         if show_plot:
             plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
 
-        return pred, arousal, valence
+        return pred, max_prob, arousal, valence
 

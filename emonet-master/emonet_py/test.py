@@ -1,35 +1,59 @@
 import os.path
-
+import matplotlib.pyplot as plt
 import explanations_emonet, global_analysis, local_analysis, emonet
 import pandas as pd
+import numpy as np
 
-header = ['image_path', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob', 'emonet_amusement_prob',
-          'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
-          'emonet_craving_prob',
-          'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
-          'emonet_excitement_prob',
-          'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
-          'emonet_romance_prob',
-          'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
-          'emonet_arousal']
+# Your dictionary of emotions and objects
+data = {
+    'Romance': {'Human face': 0.2308, 'Person': 0.6923, 'Clothing': 0.0769},
+    'Amusement': {'Person': 0.6441, 'Clothing': 0.2542, 'Human face': 0.0847, 'Furniture': 0.0169},
+    'Joy': {'Human face': 0.3, 'Person': 0.4667, 'Clothing': 0.1667, 'Vehicle': 0.0333, 'Sports equipment': 0.0333},
+    'Excitement': {'Person': 0.8824, 'Clothing': 0.0588, 'Sports equipment': 0.0588},
+    'Confusion': {'Clothing': 0.4444, 'Human face': 0.1111, 'Person': 0.4444},
+    'Awe': {'Person': 1.0},
+    'Sadness': {'Person': 0.7273, 'Clothing': 0.2727},
+    'Disgust': {'Person': 0.5, 'Clothing': 0.5},
+    'Boredom': {'Human face': 0.3889, 'Person': 0.5556, 'Clothing': 0.0556},
+    'Fear': {'Person': 0.5, 'Clothing': 0.5},
+    'Anxiety': {'Person': 1.0},
+    'Interest': {'Person': 1.0}
+}
 
-def import_annotations():
-    df_annotations = pd.read_csv('annotations_single.ann')
-    df_annotations = df_annotations.rename(columns={'user': 'ann_user', 'image_path': 'ann_original_image_path',
-                                                    'reject': 'ann_reject', 'tag': 'age_group',
-                                                    'valence': 'ann_valence', 'arousal': 'ann_arousal',
-                                                    'emotion': 'ann_emotion', 'dec_factors': 'ann_dec_factors',
-                                                    'ambiguity': 'ann_ambiguity', 'fmri_candidate': 'ann_fmri_candidate',
-                                                    'datetime': 'ann_datetime'})
-    df_annotations['dir_image_path'] = df_annotations['ann_original_image_path'].apply(get_dir_image_path)
-    return df_annotations
+# Create a figure and axis object
+fig, ax = plt.subplots(figsize=(12, 8))
 
-def get_dir_image_path(file_path):
-    return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
+# List to store the positions of the bars
+bar_positions = []
 
+# Iterate through each emotion
+for i, (emotion, objects) in enumerate(data.items()):
+    # Get the objects and their values for the current emotion
+    objects_list = list(objects.keys())
+    values_list = list(objects.values())
 
-path = '/Users/youssefdoulfoukar/Desktop/Thesis/PytorchProject/emonet-master/emonet_py'
+    # Position of the bars for the current emotion
+    pos = [p + i for p in range(len(objects_list))]
 
-import_annotations().to_csv('ann_test')
+    # Plot the bars
+    bars = ax.bar(pos, values_list, label=emotion)
 
-print(get_dir_image_path(path))
+    # Add object names at each bar
+    for bar, obj in zip(bars, objects_list):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), obj, ha='center', va='bottom', rotation=90)
+
+    # Store the bar positions for later use
+    bar_positions.extend(pos)
+
+# Set the x-axis labels
+ax.set_xticks(bar_positions)
+ax.set_xticklabels([])
+
+# Set labels and title
+ax.set_xlabel('Objects')
+ax.set_ylabel('Values')
+ax.set_title('Emotions and Objects')
+
+# Show plot
+plt.tight_layout()
+plt.show()
