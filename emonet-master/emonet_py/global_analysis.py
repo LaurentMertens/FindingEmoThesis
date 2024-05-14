@@ -27,12 +27,11 @@ from PIL import Image
 import pandas as pd
 
 # header for EmoNet outputs
-df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_adoration_prob', 'emonet_aesthetic_appreciation_prob',
-                    'emonet_amusement_prob',
-                    'emonet_anxiety_prob', 'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
-                    'emonet_craving_prob',
-                    'emonet_disgust_prob', 'emonet_empathetic_pain_prob', 'emonet_entrancement_prob',
-                    'emonet_excitement_prob',
+df_emonet_header = ['dir_image_path', 'emonet_max_emotion', 'emonet_max_emotion_prob', 'emonet_adoration_prob',
+                    'emonet_aesthetic_appreciation_prob', 'emonet_amusement_prob', 'emonet_anxiety_prob',
+                    'emonet_awe_prob', 'emonet_boredom_prob', 'emonet_confusion_prob',
+                    'emonet_craving_prob', 'emonet_disgust_prob', 'emonet_empathetic_pain_prob',
+                    'emonet_entrancement_prob', 'emonet_excitement_prob',
                     'emonet_fear_prob', 'emonet_horror_prob', 'emonet_interest_prob', 'emonet_joy_prob',
                     'emonet_romance_prob',
                     'emonet_sadness_prob', 'emonet_sexual_desire_prob', 'emonet_surprise_prob', 'emonet_valence',
@@ -80,10 +79,9 @@ class GlobalAnalysis:
         # define dir_image_path as part of the path containing file and its folder
         dir_image_path = get_dir_image_path(file_path)
         # get outputs of EmoNet
-        emotion_tensor, max_prob, arousal, valence = self.expl_emo.explanations_emonet(file_path, image_name)
-        emotion = emotion_tensor.item()
+        max_emotion, max_prob, emotion_tensor, arousal, valence = self.expl_emo.explanations_emonet(file_path, image_name)
         # first elements of the new row are the image path and predicted emotion
-        new_row = [dir_image_path, emotion]
+        new_row = [dir_image_path, max_emotion, max_prob]
         # append probabilities for the output tensor emotion
         for sample in range(emotion_tensor.shape[0]):
             for emo_idx in range(20):
@@ -92,7 +90,7 @@ class GlobalAnalysis:
         new_row += [valence, arousal]
         # add the row to the dataframe
         df_emonet.loc[len(df_emonet)] = new_row
-        return df_emonet, emotion, max_prob
+        return df_emonet, max_emotion, max_prob
 
     def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo):
         """
@@ -191,7 +189,7 @@ if __name__ == '__main__':
     print("Total number of folders = ", total_number_folders)
 
     # set nb of folders to process
-    nb_folders_to_process = 10
+    nb_folders_to_process = 100
     # get nb of images to process
     nb_images_to_process = ga.get_number_of_images(directory_path, nb_folders_to_process)
     print("Total number of images to process = ", nb_images_to_process)

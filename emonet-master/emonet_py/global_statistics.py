@@ -64,14 +64,14 @@ class GlobalStatistics:
         for index, row in self.emonet_ann_ouputs.iterrows():
             if n < nb_rows_to_process:
                 # only consider objects with importance higher than threshold
-                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emotion_confidence'] > emo_conf_thres:
+                if row['ann_ambiguity'] < ann_ambiguity_thres and row['emonet_max_emotion_prob'] > emo_conf_thres:
                     if row['ann_emotion'] in dict:
-                        if row['detected_object'] in dict[row['ann_emotion']]:
-                            dict[row['ann_emotion']][row['emonet_emotion']] += 1
+                        if row['emonet_max_emotion'] in dict[row['ann_emotion']]:
+                            dict[row['ann_emotion']][row['emonet_max_emotion']] += 1
                         else:
-                            dict[row['ann_emotion']][row['emonet_emotion']] = 1
+                            dict[row['ann_emotion']][row['emonet_max_emotion']] = 1
                     else:
-                        dict[row['ann_emotion']] = {row['emonet_emotion']: 1}
+                        dict[row['ann_emotion']] = {row['emonet_max_emotion']: 1}
                 if n % 500 == 0:
                     print('Saving progress...')
                     save_dictionary(dict, 'objects_emotions_dict')
@@ -142,4 +142,4 @@ if __name__ == '__main__':
     emo_ann_dict = gs.emo_ann_dict
     emo_ann_freq_dict = gs.get_emo_obj_freq(emo_ann_dict)
     gs.plot_dict_heatmap(emo_obj_freq_dict)
-    gs.plot_dict_heatmap(emo_ann_dict)
+    gs.plot_dict_heatmap(emo_ann_freq_dict)

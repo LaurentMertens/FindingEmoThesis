@@ -166,5 +166,5 @@ class ExplanationsEmonet:
         if show_plot:
             plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
 
-        return pred, max_prob, arousal, valence
+        return max_class, max_prob, pred, arousal, valence
 
