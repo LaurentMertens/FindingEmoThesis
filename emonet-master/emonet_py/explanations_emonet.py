@@ -127,13 +127,18 @@ class ExplanationsEmonet:
                  'annotation_valence', 'annotation_arousal', 'annotation_emotion', 'annotation_deciding_factors',
                  'annotation_ambiguity',
                  'annotation_fmri_candidate', 'annotation_datetime']
-    def __init__(self):
+    def __init__(self, device=torch.device('cpu')):
+        self.device = device
         self.emonet = EmoNet(b_eval=True)
+        self.emonet.emonet.to(device)
         self.emonet_pp = EmoNetPreProcess()
+        self.emonet_arousal = EmoNetArousal().to(device)
+        self.emonet_valence = EmoNetValence().to(device)
 
     def get_most_probable_class(self, preds: torch.Tensor):
         max_prob = preds[0][0]
         max_class = EmoNet.EMOTIONS[0]
+        class_index = 0
         for sample in range(preds.shape[0]):
             for emo_idx in range(20):
                 if preds[sample, emo_idx] > max_prob:
@@ -147,15 +152,18 @@ class ExplanationsEmonet:
         img_tensor, img_loaded = self.emonet_pp(img_path)
         img_size = img_loaded.size
         in_tensor = img_tensor.unsqueeze(0)
-        emo_aro = EmoNetArousal()
-        arousal = emo_aro(in_tensor).item()
-        emo_val = EmoNetValence()
-        valence = emo_val(in_tensor).item()
+        emo_model = self.emonet.emonet
+
+        # We don't need the gradients
+        with torch.no_grad():
+            in_tensor = in_tensor.to(self.device)
+            arousal = self.emonet_arousal(in_tensor).item()
+            valence = self.emonet_valence(in_tensor).item()
+            pred = emo_model(in_tensor)
+
         # Images
         proc_img = np.float32(img_loaded)/255
         # Model
-        emo_model = self.emonet.emonet
-        pred = emo_model(in_tensor)
         max_prob, max_class, class_index = self.get_most_probable_class(pred)
         activation_maps = [emo_model.conv5]
         # Visualization

@@ -12,6 +12,8 @@ import torch
 from PIL import Image
 from lightnet.models import YoloV3
 from torchvision import transforms
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import cv2
 import signal
@@ -46,10 +48,10 @@ class GlobalAnalysis:
     GlobalAnalysis class used to apply the EmoNet and Yolov3 pipeline and extract all outputs in .csv format.
     """
 
-    def __init__(self):
-        self.local_analysis = LocalAnalysis()
-        self.expl_emo = ExplanationsEmonet()
-
+    def __init__(self, device=torch.device('cpu')):
+        self.device = device
+        self.local_analysis = LocalAnalysis(device=device)
+        self.expl_emo = ExplanationsEmonet(device=device)
 
     def update_emonet_df(self, file_path, df_emonet):
         """
@@ -91,44 +93,44 @@ class GlobalAnalysis:
         new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
         return pd.concat([df_yolo, new_df_yolo], ignore_index=True)
 
-    def save_model_outputs(self, directory, nb_images, nb_folders_to_process):
+    def save_model_outputs(self, directory):
         """
-        save to .csv two files containing the outputs of EmoNet (and FindingEmo annotations) and Yolov3 respectively
+        save to two .csv files containing the outputs of EmoNet (and FindingEmo annotations) and Yolov3 respectively
         """
         count_images = 0
         # create EmoNet output dataframe with header
         df_emonet = pd.DataFrame(columns=df_emonet_header)
         # create Yolo output dataframe
         df_yolo = pd.DataFrame()
-        # loop over folders containing the images
-        for folder_name in os.listdir(directory)[:nb_folders_to_process]:
+
+        # Get image paths
+        image_paths = ga.get_image_paths(directory_path)
+        nb_images = len(image_paths)
+        for image_path in image_paths:
+            # Let's be sure
+            if not image_path.endswith(('.jpg', '.jpeg', '.png')):
+                raise ValueError(f"Expected image file of type jpg/jpeg/png, got something else instead.\n[{image_path}]")
             # raising exceptions for corrupted files
             try:
-                folder_path = os.path.join(directory, folder_name)
-                for image_name in os.listdir(folder_path):
-                    if image_name.endswith(('.jpg', '.jpeg', '.png')):
-                        # raising exceptions for corrupted files
-                        try:
-                            file_path = os.path.join(folder_path, image_name)
-                            print("Processing:", file_path)
+                print("Processing:", image_path)
 
-                            # update emonet dataframe with outputs from new image
-                            df_emonet, max_emotion, max_prob = self.update_emonet_df(file_path, df_emonet)
+                # update emonet dataframe with outputs from new image
+                df_emonet, max_emotion, max_prob = self.update_emonet_df(image_path, df_emonet)
 
-                            # update yolo dataframe with outputs from new image
-                            df_yolo = self.update_yolo_df(file_path, max_emotion, max_prob, df_yolo)
+                # update yolo dataframe with outputs from new image
+                df_yolo = self.update_yolo_df(image_path, max_emotion, max_prob, df_yolo)
 
-                            count_images += 1
-                            print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")
-                        except Exception as e:
-                            print(f'Error processing: {folder_path + image_name} : {e}')
-                if count_images % 200 == 0:
-                    print('Saving progress...')
-                    df_emonet.to_csv('emonet_outputs')
-                    df_yolo.to_csv('yolo_outputs')
-                    print('emonet_outputs and df_yolo saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'')
-            except Exception as e:
-                print(f'Error processing: {directory + folder_name} : {e}')
+                count_images += 1
+                print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")
+            except FileNotFoundError as e:
+                print(f'Error processing: {image_path}:\n\t{e}')
+                exit()
+            if count_images % 200 == 0:
+                print('Saving progress...')
+                df_emonet.to_csv('emonet_outputs')
+                df_yolo.to_csv('yolo_outputs')
+                print('emonet_outputs and df_yolo saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'')
+
         # save emonet_ann outputs dataframe as .csv
         df_emonet.to_csv('emonet_outputs')
         # safe yolo outputs dataframe as .csv
@@ -137,42 +139,66 @@ class GlobalAnalysis:
 
         return count_images
 
-    @staticmethod
-    def get_number_of_images(directory, nb_folders_to_process):
+    @classmethod
+    def get_number_of_images(cls, directory, nb_elems_to_process=None):
+        if nb_elems_to_process is None:
+            nb_elems_to_process = len(os.listdir(directory))
+
         nb_images = 0
-        if nb_folders_to_process == None:
-            nb_folders_to_process = ga.get_number_of_folders(directory)
-        for folder_name in os.listdir(directory)[:nb_folders_to_process]:
-            try:
-                folder_path = os.path.join(directory, folder_name)
-                for image_name in os.listdir(folder_path):
-                    if image_name.endswith(('.jpg', '.jpeg', '.png')):
-                        nb_images += 1
-            except Exception as e:
-                print(f"Error processing {directory + folder_name}: {e}")
-                continue
+        for e in os.listdir(directory)[:nb_elems_to_process]:
+            e_path = os.path.join(directory, e)
+            if os.path.isdir(e_path):
+                nb_images += cls.get_number_of_images(e_path)
+            elif e_path.endswith(('.jpg', '.jpeg', '.png')):
+                nb_images += 1
+
         return nb_images
+
+    @classmethod
+    def get_image_paths(cls, directory, nb_elems_to_process=None):
+        if nb_elems_to_process is None:
+            nb_elems_to_process = len(os.listdir(directory))
+
+        image_paths = []
+        for e in os.listdir(directory)[:nb_elems_to_process]:
+            e_path = os.path.join(directory, e)
+            if os.path.isdir(e_path):
+                image_paths += cls.get_image_paths(e_path)
+            elif e_path.endswith(('.jpg', '.jpeg', '.png')):
+                image_paths.append(e_path)
+
+        return image_paths
 
     @staticmethod
     def get_number_of_folders(directory):
-        return len(os.listdir(directory))
+        nb_dirs = 0
+        for e in os.listdir(directory):
+            if os.path.isdir(os.path.join(directory, e)):
+                nb_dirs += 1
+
+        return nb_dirs
+
 
 if __name__ == '__main__':
     # instantiation
-    ga = GlobalAnalysis()
+    ga = GlobalAnalysis(device=torch.device('cuda'))
 
     # path of directory containing all folders, each with images
-    directory_path = os.path.join('findingemo_dataset')
+    directory_path = os.path.join(os.path.expanduser('~'),
+                                  'Work', 'Projects', 'NeuroANN', 'Data', 'AnnImagesProlific')
     # get info
     total_number_folders = ga.get_number_of_folders(directory_path)
     print("Total number of folders = ", total_number_folders)
 
     # set nb of folders to process
-    nb_folders_to_process = None
+    # Prefix with '_' to not conflict with the "nb_..." variable inside the "get_number_of_images" method
+    _nb_elems_to_process = None
     # get nb of images to process
-    nb_images_to_process = ga.get_number_of_images(directory_path, nb_folders_to_process)
+    nb_images_to_process = ga.get_number_of_images(directory_path, _nb_elems_to_process)
     print("Total number of images to process = ", nb_images_to_process)
 
+    # Sanity check
+    print(f"Total number of image paths: {len(ga.get_image_paths(directory_path))}")
     # save model outputs & get number of images actually processed
-    nb_img_processed = ga.save_model_outputs(directory_path, nb_images_to_process, nb_folders_to_process)
+    nb_img_processed = ga.save_model_outputs(directory_path)
     print("Total number of images processed: ", nb_img_processed)
