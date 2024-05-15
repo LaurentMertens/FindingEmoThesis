@@ -22,9 +22,9 @@ class GlobalStatistics:
         self.emo_conf_thres = emo_conf_thres
         self.obj_conf_thres = obj_conf_thres
         self.ann_ambiguity_thres = ann_ambiguity_thres
-        self.proc_outputs = self.proc_df()
+        self.total_outputs = self.merge_df()
 
-    def proc_df(self):
+    def merge_df(self):
         #self.emonet_ann_outputs = self.emonet_ann_outputs.explode("ann_dec_factors")
         merged_df = pd.merge(self.emonet_ann_outputs, self.yolo_outputs,
                              on=["dir_image_path", "emonet_emotion", "emonet_emotion_conf"])
@@ -36,30 +36,32 @@ class GlobalStatistics:
         return df
 
     def get_emo_obj_df(self):
-        count_df = pd.crosstab(self.proc_outputs["emonet_emotion"], self.proc_outputs["detected_object"])
+        emo_obj_df = self.yolo_outputs[(self.yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
+                       (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
+                       (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
 
-        return count_df
+        return emo_obj_df[["emonet_emotion", "detected_object"]]
 
     def get_emo_ann_df(self):
-        count_df = pd.crosstab(self.proc_outputs["emonet_emotion"], self.proc_outputs["ann_emotion"])
+        emo_ann_df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                       (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
 
-        return count_df
+        return emo_ann_df[["emonet_emotion", "ann_emotion"]]
 
     def get_obj_ann_df(self):
-        count_df = pd.crosstab(self.proc_outputs["ann_emotion"], self.proc_outputs["detected_object"])
 
-        return count_df
+        return self.total_outputs[["ann_emotion", "detected_object"]]
 
     def get_emo_fact_df(self):
-        count_df = pd.crosstab(self.proc_outputs["emonet_emotion"], self.proc_outputs["ann_dec_factors"])
+        emo_ann_df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                       (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
 
-        return count_df
+        return emo_ann_df[["ann_emotion", "ann_dec_factors"]]
 
 
     def get_aro_df(self):
-        df = self.emonet_ann_outputs.drop(self.emonet_ann_outputs[
-                                              (self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                              (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)].index)
+        df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                       (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
 
         return df[["emonet_arousal", "ann_arousal"]]
 
@@ -89,20 +91,13 @@ class GlobalStatistics:
         #for i, bar in enumerate(ax.patches):
         #    bar.set_color('b')
 
-    def plot_heatmap(self, emo_obj_freq_dict):
-        sns.heatmap(pd.DataFrame(emo_obj_freq_dict), annot=True, cmap='coolwarm')
-        plt.show()
 
-    def plot_scatter_size_plot(self, col1, col2):
-        c = pd.crosstab(gs.proc_outputs[col1], gs.proc_outputs[col2]).stack().reset_index(name='C')
+    def plot_scatter_size_plot(self, df, col1, col2):
+        c = pd.crosstab(df[col1], df[col2]).stack().reset_index(name='C')
         c.plot.scatter(col1, col2, s=c.C * 10)
 
-    def plot_scatter(self, dict, x_legend, y_legend):
-        fig, ax = plt.subplots()
-        ax.scatter(dict.keys(), dict.values(), c="steelblue")
-        ax.set_xlabel(x_legend), ax.set_ylabel(y_legend)
-        plt.tight_layout()
-        plt.show()
+    def plot_scatter(self, df):
+        sns.scatterplot(df)
 
 
     def get_dict_freq(self, dico):
@@ -126,7 +121,7 @@ class GlobalStatistics:
         Plot an association matrix using the Cramer's V method with for 4 nominal features
         """
         # select features only
-        df = self.proc_df()[["detected_object", "emonet_emotion", "ann_emotion", "ann_dec_factors"]]
+        df = self.total_outputs[["detected_object", "emonet_emotion", "ann_emotion", "ann_dec_factors"]]
         # Convert you str columns to Category columns
         df = df.apply(
             lambda x: x.astype("category") if x.dtype == "O" else x)
@@ -137,7 +132,9 @@ class GlobalStatistics:
         print(cramersv.fit())
 
     def remove_obj_cat(self, obj):
-        self.proc_outputs = self.proc_outputs[self.proc_outputs["detected_object" != obj]]
+        self.total_outputs = self.total_outputs[self.total_outputs["detected_object" != obj]]
+        self.yolo_outputs = self.yolo_outputs[self.yolo_outputs["detected_object" != obj]]
+
 
 if __name__ == '__main__':
     gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.5, obj_conf_thres=0.5,
@@ -145,31 +142,44 @@ if __name__ == '__main__':
 
     # analysis 1 : detected object (Yolo & GradCam) vs predicted emotion (EmoNet)
     emo_obj_df = gs.get_emo_obj_df()
-    cram_corr_emo_obj = sp.stats.contingency.association(emo_obj_df, 'cramer')
-    chi_square_corr_emo_obj = sp.stats.chi2_contingency(emo_obj_df)
+    emo_obj_df_ct = pd.crosstab(emo_obj_df["emonet_emotion"], emo_obj_df["detected_object"])
+    cram_corr_emo_obj = sp.stats.contingency.association(emo_obj_df_ct, 'cramer')
+    chi_square_corr_emo_obj = sp.stats.chi2_contingency(emo_obj_df_ct)
+    gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
+    sns.heatmap(emo_obj_df_ct, annot=True, cmap='coolwarm')
 
     # analysis 2 : predicted emotion (EmoNet) vs annotated emotion (ANN)
     emo_ann_df = gs.get_emo_ann_df()
-    cram_corr_emo_ann = sp.stats.contingency.association(emo_ann_df, 'cramer')
-    chi_square_corr_emo_ann = sp.stats.chi2_contingency(emo_ann_df)
+    emo_ann_df_ct = pd.crosstab(emo_ann_df["emonet_emotion"], emo_ann_df["ann_emotion"])
+    cram_corr_emo_ann = sp.stats.contingency.association(emo_ann_df_ct, 'cramer')
+    chi_square_corr_emo_ann = sp.stats.chi2_contingency(emo_ann_df_ct)
+    gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
+    sns.heatmap(emo_ann_df_ct, annot=True, cmap='coolwarm')
 
-    # analysis 3 : deciding factor (ANN) vs annotated emotion (ANN) (to compare with analysis 1)
+    # analysis 3 : detected objects (Yolo) vs annotated emotions (ANN)
+    obj_ann_df = gs.get_obj_ann_df()
+    obj_ann_df_ct = pd.crosstab(obj_ann_df["ann_emotion"], obj_ann_df["detected_object"])
+    cram_corr_obj_ann = sp.stats.contingency.association(obj_ann_df_ct, 'cramer')
+    chi_square_corr_obj_ann = sp.stats.chi2_contingency(obj_ann_df_ct)
+    gs.plot_scatter_size_plot(obj_ann_df, "ann_emotion", "detected_object")
+    sns.heatmap(obj_ann_df_ct, annot=True, cmap='coolwarm')
+
+    # analysis 4 : predicted valence (EmoNet) vs annotated valence (ANN)
+    val_emonet_ann_df = gs.get_val_df()
+    pears_val = sp.stats.pearsonr(val_emonet_ann_df["emonet_valence"], val_emonet_ann_df["ann_valence"])
+    sns.scatterplot(val_emonet_ann_df, x="emonet_valence", y="ann_valence")
+
+    # analysis 5 : predicted arousal (EmoNet) vs annotated arousal (ANN)
+    aro_emonet_ann_df = gs.get_aro_df()
+    pears_aro = sp.stats.pearsonr(aro_emonet_ann_df["emonet_arousal"], aro_emonet_ann_df["ann_arousal"])
+    sns.scatterplot(aro_emonet_ann_df, x="emonet_arousal", y="ann_arousal")
+
+    # ( analysis  : deciding factor (ANN) vs annotated emotion (ANN) )
     emo_fact_ann_df = gs.get_emo_fact_df()
+    emo_fact_ann_df = pd.crosstab(emo_fact_ann_df["ann_dec_factors"], emo_fact_ann_df["ann_emotion"])
     cram_corr_emo_fact = sp.stats.contingency.association(emo_fact_ann_df, 'cramer')
     chi_square_corr_emo_fact = sp.stats.chi2_contingency(emo_fact_ann_df)
 
-    # analysis 4 : detected objects (Yolo) vs annotated emotions (ANN)
-    obj_ann_df = gs.get_obj_ann_df()
-    cram_corr_obj_ann = sp.stats.contingency.association(obj_ann_df, 'cramer')
-    chi_square_corr_obj_ann = sp.stats.chi2_contingency(obj_ann_df)
-
-    # analysis 5 : predicted valence (EmoNet) vs annotated valence (ANN)
-    val_emonet_ann_df = gs.get_val_df()
-    pears_val = sp.stats.pearsonr(val_emonet_ann_df["emonet_valence"], val_emonet_ann_df["ann_valence"])
-
-    # analysis 6 : predicted arousal (EmoNet) vs annotated arousal (ANN)
-    aro_emonet_ann_df = gs.get_aro_df()
-    pears_aro = sp.stats.pearsonr(aro_emonet_ann_df["emonet_arousal"], aro_emonet_ann_df["ann_arousal"])
 
     # correlation matrix
     gs.cramers_correlation_matrix()
@@ -179,8 +189,7 @@ if __name__ == '__main__':
     print("detected objects vs ann emotions", cram_corr_obj_ann)
     print("emonet valence vs ann valence", pears_val)
     print("emonet arousal vs ann arousal", pears_aro)
-    print(gs.proc_outputs[["emonet_valence", "ann_valence", "emonet_arousal", "ann_arousal"]].corr(method="pearson"))
+    print(gs.total_outputs[["emonet_valence", "ann_valence", "emonet_arousal", "ann_arousal"]].corr(method="pearson"))
 
-    gs.plot_scatter_size_plot("emonet_emotion", "detected_object")
-    gs.plot_scatter_size_plot("emonet_emotion", "ann_emotion")
     plt.show()
+
