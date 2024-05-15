@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import cv2
 import signal
 import json
-
+import PIL
 from img_resize_preproc import ImgResize
 from explanations_emonet import get_visualizations, plot_cam, ExplanationsEmonet
 from pytorch_grad_cam.utils.image import scale_cam_image, scale_accross_batch_and_channels, show_cam_on_image
@@ -122,9 +122,9 @@ class GlobalAnalysis:
 
                 count_images += 1
                 print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")
-            except FileNotFoundError as e:
+            except PIL.UnidentifiedImageError as e:
                 print(f'Error processing: {image_path}:\n\t{e}')
-                exit()
+                continue
             if count_images % 200 == 0:
                 print('Saving progress...')
                 df_emonet.to_csv('emonet_outputs')
@@ -181,11 +181,11 @@ class GlobalAnalysis:
 
 if __name__ == '__main__':
     # instantiation
-    ga = GlobalAnalysis(device=torch.device('cuda'))
+    ga = GlobalAnalysis(device=torch.device('mps'))
 
     # path of directory containing all folders, each with images
     directory_path = os.path.join(os.path.expanduser('~'),
-                                  'Work', 'Projects', 'NeuroANN', 'Data', 'AnnImagesProlific')
+                                  'Desktop', 'Thesis', 'PytorchProject', 'emonet-master', 'emonet_py', 'findingemo_dataset')
     # get info
     total_number_folders = ga.get_number_of_folders(directory_path)
     print("Total number of folders = ", total_number_folders)
