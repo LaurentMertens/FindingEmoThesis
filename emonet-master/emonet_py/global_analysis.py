@@ -40,25 +40,6 @@ df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_emotion_conf', '
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
 
-def merge_annotations(df_emonet):
-    """
-    Merge the FindingEmo annotations with the outputs of EmoNet.
-    """
-    df_annotations = pd.read_csv('annotations_single.ann')
-    # modify annotations header to distinguish from EmoNet outputs
-    df_annotations = df_annotations.rename(columns={'user': 'ann_user', 'image_path': 'ann_original_image_path',
-                                                    'reject': 'ann_reject', 'age': 'age_group',
-                                                    'valence': 'ann_valence', 'arousal': 'ann_arousal',
-                                                    'emotion': 'ann_emotion', 'dec_factors': 'ann_dec_factors',
-                                                    'ambiguity': 'ann_ambiguity',
-                                                    'fmri_candidate': 'ann_fmri_candidate',
-                                                    'datetime': 'ann_datetime'})
-    # add 'dir_image_path' as path containing only folder name and file name
-    df_annotations['dir_image_path'] = df_annotations['ann_original_image_path'].apply(get_dir_image_path)
-    # merge both dataframes
-    merged_df = pd.merge(df_emonet, df_annotations, on='dir_image_path')
-    return merged_df
-
 
 class GlobalAnalysis:
     """
@@ -142,18 +123,16 @@ class GlobalAnalysis:
                             print(f'Error processing: {folder_path + image_name} : {e}')
                 if count_images % 200 == 0:
                     print('Saving progress...')
-                    df_emonet.to_csv('df_emonet_outputs')
+                    df_emonet.to_csv('emonet_outputs')
                     df_yolo.to_csv('yolo_outputs')
-                    print('df_emonet and df_yolo saved to \'df_emonet_outputs.csv\' and \'yolo_outputs.csv\'')
+                    print('emonet_outputs and df_yolo saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'')
             except Exception as e:
                 print(f'Error processing: {directory + folder_name} : {e}')
-        # merge modified annotations with emonet dataframe
-        df_emonet_ann = merge_annotations(df_emonet)
         # save emonet_ann outputs dataframe as .csv
-        df_emonet_ann.to_csv('emonet_ann_outputs')
+        df_emonet.to_csv('emonet_outputs')
         # safe yolo outputs dataframe as .csv
         df_yolo.to_csv('yolo_outputs')
-        print('df_emonet_ann and df_yolo saved to \'emonet_ann_outputs.csv\' and \'yolo_outputs.csv\'...')
+        print('emonet_outputs and yolo_outputs saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'...')
 
         return count_images
 
