@@ -78,8 +78,6 @@ class LocalAnalysis:
         df["object_importance"] = importance
         return df
 
-    def show_yolo_output(self, pil_image, dataframe):
-        bb.util.draw_boxes(pil_image, dataframe, label=dataframe.class_label).show()
     def local_analysis(self, file_path, file_name, show_output=False):
         """
         Perform local analysis on single image.
@@ -115,12 +113,12 @@ class LocalAnalysis:
             df_complete = self.add_importance(output_df, grayscale_cam_scaled)
 
             # rename 'class_label' to 'detected_object' for more clarity later
-            df_complete = df_complete.rename(columns={'class_label': 'detected_object',
-                                                      'confidence': 'object_confidence'})
-            df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
+            df_complete_return = df_complete.rename(columns={'class_label': 'detected_object',
+                                                      'confidence': 'object_confidence'}).sort_values(by="object_importance", ascending=False)
+            df_sorted = df_complete_return.sort_values(by="object_importance", ascending=False)
+
             if show_output:
-                self.show_yolo_output(pil_img, df_sorted)
+                bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label).show()
+                plt.show()
 
-        return df_sorted
-
-
+        return df_complete_return

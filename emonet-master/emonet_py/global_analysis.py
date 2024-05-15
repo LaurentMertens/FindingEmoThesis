@@ -190,7 +190,7 @@ if __name__ == '__main__':
     print("Total number of folders = ", total_number_folders)
 
     # set nb of folders to process
-    nb_folders_to_process = 500
+    nb_folders_to_process = None
     # get nb of images to process
     nb_images_to_process = ga.get_number_of_images(directory_path, nb_folders_to_process)
     print("Total number of images to process = ", nb_images_to_process)
