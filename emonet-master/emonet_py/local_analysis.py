@@ -21,7 +21,9 @@ from pytorch_grad_cam.utils.image import scale_cam_image, scale_accross_batch_an
 
 
 class LocalAnalysis:
-    def __init__(self):
+    def __init__(self, device=torch.device('cpu')):
+        self.device = device
+
         # Load names of OpenImage classes
         class_map = []
         with open("openimages.names", "r") as fin:
@@ -34,6 +36,7 @@ class LocalAnalysis:
         self.model.load(os.path.join(os.path.expanduser('~'), 'Work', 'Projects',
                                      'NeuroANN', 'Data', 'PreTrainedModels', 'DarkNet', 'yolov3-openimages.weights'))
         self.model.eval()
+        self.model.to(device)
 
         thresh = 0.005
 
@@ -99,7 +102,7 @@ class LocalAnalysis:
             grayscale_cam_scaled = grayscale_cam_tensor.numpy()[0, :]
 
             # get output of Yolo
-            output_tensor = self.model(img_tensor.unsqueeze(0))
+            output_tensor = self.model(img_tensor.unsqueeze(0).to(self.device))
 
             # post-processing
             output_df = self.post(output_tensor)
