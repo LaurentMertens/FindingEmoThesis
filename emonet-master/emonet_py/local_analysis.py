@@ -31,9 +31,7 @@ class LocalAnalysis:
 
         # Load YoloV3 model + OpenImage weights
         self.model = YoloV3(601)
-        self.model.load(os.path.join(os.path.expanduser('~'),
-                                     "Work", "Projects", "NeuroANN",
-                                     "Data", "PreTrainedModels", "DarkNet", 'yolov3-openimages.weights'))
+        self.model.load(os.path.join('yolov3-openimages.weights'))
         self.model.eval()
 
         thresh = 0.005
@@ -67,53 +65,61 @@ class LocalAnalysis:
 
     def add_importance(self, df, heatmap):
         importance = []
-        #plt.imshow(heatmap)
-        #plt.show()
         for index, row in df.iterrows():
             x_min = int(row["x_top_left"])
             x_max = int(row["x_top_left"] + row["width"])
             y_min = int(row["y_top_left"])
             y_max = int(row["y_top_left"] + row["height"])
+            # region inside the bounding box
             bounded_region = heatmap[y_min:y_max, x_min:x_max]
-                #if bounded_region.size == 0:
-            #print(index)
-            #print("x_min :", x_min, " x_max :", x_max)
-            #print("y_min :", x_min, " y_max :", x_max)
-            #print("Importance: ", np.mean(bounded_region))
+            # define importance as the average activation inside that region
             importance.append(np.mean(bounded_region))
-        df["importance"] = importance
+        df["object_importance"] = importance
         return df
 
-    def local_analysis(self, file_path, file_name, show_box=False):
+    def show_yolo_output(self, pil_image, dataframe):
+        bb.util.draw_boxes(pil_image, dataframe, label=dataframe.class_label).show()
+    def local_analysis(self, file_path, file_name, show_output=False):
         """
         Perform local analysis on single image.
         """
         img_path = os.path.join(file_path)
+
+        # load the corresponding grad-cam heatmap
         grayscale_cam = np.load("cam_grad_dataset/cam_grad_"+file_name+".npy")
         with torch.no_grad():
             with open(img_path, 'rb') as f:
                 img = Image.open(f).convert('RGB')
             img_tensor = self.transform(img)
+
+            # resize heatmap to input image
             original_size_img = img.size
             grayscale_cam = cv2.resize(grayscale_cam, original_size_img)
             grayscale_cam_pil = Image.fromarray(grayscale_cam)
             grayscale_cam_tensor = self.transform(grayscale_cam_pil)
             grayscale_cam_scaled = grayscale_cam_tensor.numpy()[0, :]
 
+            # get output of Yolo
             output_tensor = self.model(img_tensor.unsqueeze(0))
+
+            # post-processing
             output_df = self.post(output_tensor)
             proc_img = img_tensor.cpu().numpy().transpose(1, 2, 0)
-            cam = show_cam_on_image(proc_img, grayscale_cam_scaled, use_rgb=True)
-            #fig, ax = plt.subplots(1, 2)
-            #ax[0].imshow(proc_img)
-            #ax[1].imshow(grayscale_cam_scaled)
-            #plt.show()
-            pil_img = Image.fromarray(cam)
-            df_complete = self.add_importance(output_df, grayscale_cam_scaled)
-            df_complete = self.confidence_cutoff(df_complete, threshold=0.1)
-            df_sorted = df_complete.sort_values(by="importance", ascending=False)
-            df_important = df_sorted.head(5)        # check confidence as additional parameter to take into account
-            if show_box:
-                bb.util.draw_boxes(pil_img, df_important, label=df_important.class_label).show()
 
-        return df_important
+            # superimpose image and gradcam heatmap
+            cam = show_cam_on_image(proc_img, grayscale_cam_scaled, use_rgb=True)
+            pil_img = Image.fromarray(cam)
+
+            # add importance of bounding boxes
+            df_complete = self.add_importance(output_df, grayscale_cam_scaled)
+
+            # rename 'class_label' to 'detected_object' for more clarity later
+            df_complete = df_complete.rename(columns={'class_label': 'detected_object',
+                                                      'confidence': 'object_confidence'})
+            df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
+            if show_output:
+                self.show_yolo_output(pil_img, df_sorted)
+
+        return df_sorted
+
+

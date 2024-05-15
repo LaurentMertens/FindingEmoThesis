@@ -33,7 +33,7 @@ class CAM_Explanation:
         explanation = min_max_normalize(explanation)
         return explanation
 
-# The later part of a given original prediction model (i.e. F in the main paper)
+# The later part of a given original prediction model
 class Model_Part(nn.Module):
     def __init__(self, model):
         super(Model_Part, self).__init__()
@@ -60,7 +60,7 @@ class Model_Part(nn.Module):
             x = F.relu(self.classifier[1](x))
             x = self.classifier[2](x)
         else:
-            if self.model_type is "vgg16":
+            if self.model_type == "vgg16":
                 x = self.max_pool(x)
             x = self.avg_pool(x)
             x = x.view(x.size(0), -1)
