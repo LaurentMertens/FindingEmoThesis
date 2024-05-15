@@ -130,6 +130,8 @@ class ExplanationsEmonet:
     def __init__(self):
         self.emonet = EmoNet(b_eval=True)
         self.emonet_pp = EmoNetPreProcess()
+        self.emonet_arousal = EmoNetArousal()
+        self.emonet_valence = EmoNetValence()
 
     def get_most_probable_class(self, preds: torch.Tensor):
         max_prob = preds[0][0]
@@ -147,15 +149,17 @@ class ExplanationsEmonet:
         img_tensor, img_loaded = self.emonet_pp(img_path)
         img_size = img_loaded.size
         in_tensor = img_tensor.unsqueeze(0)
-        emo_aro = EmoNetArousal()
-        arousal = emo_aro(in_tensor).item()
-        emo_val = EmoNetValence()
-        valence = emo_val(in_tensor).item()
+        emo_model = self.emonet.emonet
+
+        # We don't need the gradients
+        with torch.no_grad():
+            arousal = self.emonet_arousal(in_tensor).item()
+            valence = self.emonet_valence(in_tensor).item()
+            pred = emo_model(in_tensor)
+
         # Images
         proc_img = np.float32(img_loaded)/255
         # Model
-        emo_model = self.emonet.emonet
-        pred = emo_model(in_tensor)
         max_prob, max_class, class_index = self.get_most_probable_class(pred)
         activation_maps = [emo_model.conv5]
         # Visualization
