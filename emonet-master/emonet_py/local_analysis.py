@@ -31,7 +31,8 @@ class LocalAnalysis:
 
         # Load YoloV3 model + OpenImage weights
         self.model = YoloV3(601)
-        self.model.load(os.path.join('yolov3-openimages.weights'))
+        self.model.load(os.path.join(os.path.expanduser('~'), 'Work', 'Projects',
+                                     'NeuroANN', 'Data', 'PreTrainedModels', 'DarkNet', 'yolov3-openimages.weights'))
         self.model.eval()
 
         thresh = 0.005

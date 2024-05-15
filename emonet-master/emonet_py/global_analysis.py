@@ -69,7 +69,6 @@ class GlobalAnalysis:
         self.local_analysis = LocalAnalysis()
         self.expl_emo = ExplanationsEmonet()
 
-
     def update_emonet_df(self, file_path, df_emonet):
         """
         Update the EmoNet output dataframe with the analysis of a new image.
@@ -178,12 +177,14 @@ class GlobalAnalysis:
     def get_number_of_folders(directory):
         return len(os.listdir(directory))
 
+
 if __name__ == '__main__':
     # instantiation
     ga = GlobalAnalysis()
 
     # path of directory containing all folders, each with images
-    directory_path = os.path.join('findingemo_dataset')
+    directory_path = os.path.join(os.path.expanduser('~'),
+                                  'Work', 'Projects', 'NeuroANN', 'Data', 'AnnImagesProlific', 'Run_1')
     # get info
     total_number_folders = ga.get_number_of_folders(directory_path)
     print("Total number of folders = ", total_number_folders)
