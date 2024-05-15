@@ -113,9 +113,11 @@ class LocalAnalysis:
             # rename 'class_label' to 'detected_object' for more clarity later
             df_complete_return = df_complete.rename(columns={'class_label': 'detected_object',
                                                       'confidence': 'object_confidence'}).sort_values(by="object_importance", ascending=False)
-            df_sorted = df_complete_return.sort_values(by="object_importance", ascending=False)
+            df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
 
             if show_output:
+                df_sorted = df_sorted.head(6)
+                print(df_sorted)
                 bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label).show()
                 plt.show()
 
