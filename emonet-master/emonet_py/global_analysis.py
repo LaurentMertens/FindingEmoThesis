@@ -181,11 +181,12 @@ class GlobalAnalysis:
 
 if __name__ == '__main__':
     # instantiation
-    ga = GlobalAnalysis(device=torch.device('mps'))
+    ga = GlobalAnalysis(device=torch.device('cuda'))
 
     # path of directory containing all folders, each with images
     directory_path = os.path.join(os.path.expanduser('~'),
-                                  'Desktop', 'Thesis', 'PytorchProject', 'emonet-master', 'emonet_py', 'findingemo_dataset')
+                                  'Work', 'Projects', 'NeuroANN', 'Data', 'AnnImagesProlific')
+
     # get info
     total_number_folders = ga.get_number_of_folders(directory_path)
     print("Total number of folders = ", total_number_folders)

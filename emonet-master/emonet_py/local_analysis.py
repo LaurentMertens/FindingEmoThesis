@@ -33,7 +33,8 @@ class LocalAnalysis:
 
         # Load YoloV3 model + OpenImage weights
         self.model = YoloV3(601)
-        self.model.load(os.path.join(os.path.expanduser('~'), 'Desktop', 'Thesis', 'PytorchProject', 'emonet-master', 'emonet_py', 'yolov3-openimages.weights'))
+        self.model.load(os.path.join(os.path.expanduser('~'), 'Work', 'Projects',
+                                     'NeuroANN', 'Data', 'PreTrainedModels', 'DarkNet', 'yolov3-openimages.weights'))
         self.model.eval()
         self.model.to(device)
 
