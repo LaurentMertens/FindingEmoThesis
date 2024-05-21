@@ -4,6 +4,7 @@ import pandas as pd
 
 from emonet import EmoNet, EmoNetPreProcess
 from emonet_arousal import EmoNetArousal
+from emonet_py.visualizations.file_processor import FileProcessor, Processors
 from emonet_valence import EmoNetValence
 from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, EigenCAM, guided_backprop
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image, deprocess_image, show_factorization_on_image
@@ -18,81 +19,81 @@ from explanations_liftcam import CAM_Explanation
 import alexnet_big
 
 
-def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam: int, eigencam:int, liftcam:int, lrpcam:int, limecam:int,
-                       guided: int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
-                       class_index: int, img_size, file_name: str, image_weight: float = 0.5, targets=None):
-    vis = []
-    if gradcam==1:
-        camGrad = GradCAM(model, target_layers)
-        grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Grad = grayscale_cam_Grad[0, :]
-        # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Grad)
-        vis_Cam = show_cam_on_image(image, grayscale_cam_Grad, use_rgb=True, image_weight=image_weight)
-        vis.append(["Grad-CAM", vis_Cam])
-    if gradcampp==1:
-        camPlus = GradCAMPlusPlus(model, target_layers)
-        grayscale_cam_Plus = camPlus(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Plus = grayscale_cam_Plus[0, :]
-        vis_Plus = show_cam_on_image(image, grayscale_cam_Plus, use_rgb=True, image_weight=image_weight)
-        vis.append(["Grad-CAM++", vis_Plus])
-    if ablationcam==1:
-        camAbla = AblationCAM(model, target_layers)
-        grayscale_cam_Abla = camAbla(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Abla = grayscale_cam_Abla[0, :]
-        # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Abla)
-        vis_Abla = show_cam_on_image(image, grayscale_cam_Abla, use_rgb=True, image_weight=image_weight)
-        vis.append(["Ablation-CAM", vis_Abla])
-    if scorecam==1:
-        camScore = ScoreCAM(model, target_layers)
-        grayscale_cam_Score = camScore(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Score = grayscale_cam_Score[0, :]
-        vis_Score = show_cam_on_image(image, grayscale_cam_Score, use_rgb=True, image_weight=image_weight)
-        vis.append(["Score-CAM", vis_Score])
-    if eigencam==1:
-        camEigen = EigenCAM(model, target_layers)
-        grayscale_cam_Eigen = camEigen(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Eigen = grayscale_cam_Eigen[0, :]
-        np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Eigen)
-        vis_Eigen = show_cam_on_image(image, grayscale_cam_Eigen, use_rgb=True, image_weight=image_weight)
-        vis.append(["Eigen-CAM", vis_Eigen])
-    if liftcam==1:
-        input_tensor = input_tensor
-        camLift = CAM_Explanation(model, "LIFT-CAM")
-        grayscale_cam_Lift = camLift(input_tensor.cpu(), int(class_index), img_size)
-        grayscale_cam_Lift = torch.squeeze(grayscale_cam_Lift).cpu().detach().numpy()
-        vis_Lift = show_cam_on_image(image, grayscale_cam_Lift, use_rgb=True, image_weight=image_weight)
-        vis.append(["Lift-CAM", vis_Lift])
-    if lrpcam==1:
-        input_tensor = input_tensor
-        camLrp = CAM_Explanation(model, "LRP-CAM")
-        grayscale_cam_Lrp = camLrp(input_tensor.cpu(), int(class_index), img_size)
-        grayscale_cam_Lrp = torch.squeeze(grayscale_cam_Lrp).cpu().detach().numpy()
-        vis_Lrp = show_cam_on_image(image, grayscale_cam_Lrp, use_rgb=True, image_weight=image_weight)
-        vis.append(["Lrp-CAM", vis_Lrp])
-    if limecam==1:
-        input_tensor = input_tensor
-        camLime = CAM_Explanation(model, "LIME-CAM")
-        grayscale_cam_Lime = camLime(input_tensor.cpu(), int(class_index), img_size)
-        grayscale_cam_Lime = torch.squeeze(grayscale_cam_Lime).cpu().detach().numpy()
-        vis_Lime = show_cam_on_image(image, grayscale_cam_Lime, use_rgb=True, image_weight=image_weight)
-        vis.append(["Lime-CAM", vis_Lime])
-    if guided==1:
-        # Get localization map
-        camGrad = GradCAM(model, target_layers)
-        grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
-        grayscale_cam_Grad = grayscale_cam_Grad[0, :]
-        vis_Cam = show_cam_on_image(image, grayscale_cam_Grad, use_rgb=True, image_weight=0.0)
-        # Get guided backpropagation map
-        camGuided = guided_backprop.GuidedBackpropReLUModel(model, "cpu")
-        grayscale_cam_Guided = camGuided(input_tensor, class_index)
-        # Elementwise multiplication
-        guidedmap = grayscale_cam_Guided*vis_Cam
-        vis.append(["Guided Backprop", grayscale_cam_Guided])
-        vis.append(["Guided Grad-Cam", guidedmap])
-
-    return vis
-
-
+# def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam: int, eigencam:int, liftcam:int, lrpcam:int, limecam:int,
+#                        guided: int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
+#                        class_index: int, img_size, file_name: str, image_weight: float = 0.5, targets=None):
+#     vis = []
+#     if gradcam==1:
+#         camGrad = GradCAM(model, target_layers)
+#         grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Grad = grayscale_cam_Grad[0, :]
+#         # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Grad)
+#         vis_Cam = show_cam_on_image(image, grayscale_cam_Grad, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Grad-CAM", vis_Cam])
+#     if gradcampp==1:
+#         camPlus = GradCAMPlusPlus(model, target_layers)
+#         grayscale_cam_Plus = camPlus(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Plus = grayscale_cam_Plus[0, :]
+#         vis_Plus = show_cam_on_image(image, grayscale_cam_Plus, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Grad-CAM++", vis_Plus])
+#     if ablationcam==1:
+#         camAbla = AblationCAM(model, target_layers)
+#         grayscale_cam_Abla = camAbla(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Abla = grayscale_cam_Abla[0, :]
+#         # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Abla)
+#         vis_Abla = show_cam_on_image(image, grayscale_cam_Abla, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Ablation-CAM", vis_Abla])
+#     if scorecam==1:
+#         camScore = ScoreCAM(model, target_layers)
+#         grayscale_cam_Score = camScore(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Score = grayscale_cam_Score[0, :]
+#         vis_Score = show_cam_on_image(image, grayscale_cam_Score, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Score-CAM", vis_Score])
+#     if eigencam==1:
+#         camEigen = EigenCAM(model, target_layers)
+#         grayscale_cam_Eigen = camEigen(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Eigen = grayscale_cam_Eigen[0, :]
+#         np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Eigen)
+#         vis_Eigen = show_cam_on_image(image, grayscale_cam_Eigen, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Eigen-CAM", vis_Eigen])
+#     if liftcam==1:
+#         input_tensor = input_tensor
+#         camLift = CAM_Explanation(model, "LIFT-CAM")
+#         grayscale_cam_Lift = camLift(input_tensor.cpu(), int(class_index), img_size)
+#         grayscale_cam_Lift = torch.squeeze(grayscale_cam_Lift).cpu().detach().numpy()
+#         vis_Lift = show_cam_on_image(image, grayscale_cam_Lift, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Lift-CAM", vis_Lift])
+#     if lrpcam==1:
+#         input_tensor = input_tensor
+#         camLrp = CAM_Explanation(model, "LRP-CAM")
+#         grayscale_cam_Lrp = camLrp(input_tensor.cpu(), int(class_index), img_size)
+#         grayscale_cam_Lrp = torch.squeeze(grayscale_cam_Lrp).cpu().detach().numpy()
+#         vis_Lrp = show_cam_on_image(image, grayscale_cam_Lrp, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Lrp-CAM", vis_Lrp])
+#     if limecam==1:
+#         input_tensor = input_tensor
+#         camLime = CAM_Explanation(model, "LIME-CAM")
+#         grayscale_cam_Lime = camLime(input_tensor.cpu(), int(class_index), img_size)
+#         grayscale_cam_Lime = torch.squeeze(grayscale_cam_Lime).cpu().detach().numpy()
+#         vis_Lime = show_cam_on_image(image, grayscale_cam_Lime, use_rgb=True, image_weight=image_weight)
+#         vis.append(["Lime-CAM", vis_Lime])
+#     if guided==1:
+#         # Get localization map
+#         camGrad = GradCAM(model, target_layers)
+#         grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
+#         grayscale_cam_Grad = grayscale_cam_Grad[0, :]
+#         vis_Cam = show_cam_on_image(image, grayscale_cam_Grad, use_rgb=True, image_weight=0.0)
+#         # Get guided backpropagation map
+#         camGuided = guided_backprop.GuidedBackpropReLUModel(model, "cpu")
+#         grayscale_cam_Guided = camGuided(input_tensor, class_index)
+#         # Elementwise multiplication
+#         guidedmap = grayscale_cam_Guided*vis_Cam
+#         vis.append(["Guided Backprop", grayscale_cam_Guided])
+#         vis.append(["Guided Grad-Cam", guidedmap])
+#
+#     return vis
+#
+#
 def plot_cam(visualization, image, class_label, prob_label, val, aro):
     """
     plot the different localization maps superimposed on image with the most probable class, valence and arousal
@@ -134,6 +135,9 @@ class ExplanationsEmonet:
         self.emonet_pp = EmoNetPreProcess()
         self.emonet_arousal = EmoNetArousal().to(device)
         self.emonet_valence = EmoNetValence().to(device)
+        self.file_processor = FileProcessor(model=self.emonet.emonet,
+                                            target_layers=[self.emonet.emonet.conv5],
+                                            methods=[Processors.EIGENCAM])
 
     def get_most_probable_class(self, preds: torch.Tensor):
         max_prob = preds[0][0]
@@ -165,14 +169,16 @@ class ExplanationsEmonet:
         proc_img = np.float32(img_loaded)/255
         # Model
         max_prob, max_class, class_index = self.get_most_probable_class(pred)
-        activation_maps = [emo_model.conv5]
+        # activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=0, gradcampp=0, ablationcam=0, scorecam=0, eigencam=1, liftcam=0, lrpcam=0, limecam=0, guided=0,
-                                 image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
-                                 class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
+        # vis = get_visualizations(gradcam=0, gradcampp=0, ablationcam=0, scorecam=0, eigencam=1, liftcam=0, lrpcam=0, limecam=0, guided=0,
+        #                          image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
+        #                          class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
+        vis, grayscales = self.file_processor.get_visualizations(image=proc_img, input_tensor=in_tensor, class_index=class_index,
+                                                     img_size=img_size, file_name=file_name)
+
         if show_plot:
             plot_cam(visualization=vis, image=img_loaded, class_label=max_class, prob_label=max_prob, val=valence, aro=arousal)
 
-        return max_class, max_prob, pred, arousal, valence
-
+        return max_class, max_prob, pred, arousal, valence, grayscales

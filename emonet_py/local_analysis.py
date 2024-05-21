@@ -81,7 +81,7 @@ class LocalAnalysis:
         df["object_importance"] = importance
         return df
 
-    def local_analysis(self, file_path, file_name, show_output=False):
+    def local_analysis(self, file_path, file_name, cam_output, show_output=False):
         """
         Perform local analysis on single image.
 
@@ -93,13 +93,13 @@ class LocalAnalysis:
         img_path = os.path.join(file_path)
 
         # load the corresponding grad-cam heatmap
-        file_cam = "cam_grad_dataset/cam_grad_"+file_name+".npy"
-        if not os.path.exists(file_cam):
-            raise FileNotFoundError(f"Could not find CAM output for image {file_name}. "
-                                    f"Did you perform the necessary processing beforehand?")
-        cam_output = np.load(file_cam)
-        os.remove(file_cam)
-        print(f"DELETED FILE {file_cam}")
+        # file_cam = "cam_grad_dataset/cam_grad_"+file_name+".npy"
+        # if not os.path.exists(file_cam):
+        #     raise FileNotFoundError(f"Could not find CAM output for image {file_name}. "
+        #                             f"Did you perform the necessary processing beforehand?")
+        # cam_output = np.load(file_cam)
+        # os.remove(file_cam)
+        # print(f"DELETED FILE {file_cam}")
 
         with torch.no_grad():
             with open(img_path, 'rb') as f:

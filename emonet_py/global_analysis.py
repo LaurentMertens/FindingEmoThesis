@@ -54,7 +54,7 @@ class GlobalAnalysis:
         # get outputs of EmoNet
         # max_emotion, max_prob, emotion_tensor, arousal, valence, cam_outputs =\
         #     self.expl_emo.get_explanations_for_image(file_path, image_name)
-        max_emotion, max_prob, emotion_tensor, arousal, valence =\
+        max_emotion, max_prob, emotion_tensor, arousal, valence, cam_outputs =\
             self.expl_emo.explanations_emonet(file_path, image_name)
         # first elements of the new row are the image path and predicted emotion
         new_row = [dir_image_path, max_emotion, max_prob]
@@ -66,9 +66,9 @@ class GlobalAnalysis:
         new_row += [valence, arousal]
         # add the row to the dataframe
         df_emonet.loc[len(df_emonet)] = new_row
-        return df_emonet, max_emotion, max_prob#, cam_outputs
+        return df_emonet, max_emotion, max_prob, cam_outputs
 
-    def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo):#, cam_output):
+    def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo, cam_output):
         """
         Update the yolo output dataframe with the yolo output of a new image.
         """
@@ -77,7 +77,7 @@ class GlobalAnalysis:
         # define dir_image_path as part of the path containing file and its folder
         dir_image_path = get_dir_image_path(file_path)
         # get new yolo outputs of image
-        new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)#, cam_output=cam_output)
+        new_df_yolo = self.local_analysis.local_analysis(file_path, image_name, cam_output=cam_output)
         # insert emotion confidence
         new_df_yolo.insert(0, "emonet_emotion_conf", max_prob, True)
         # insert most probable emotion
@@ -111,14 +111,14 @@ class GlobalAnalysis:
                 print("Processing:", image_path)
 
                 # update emonet dataframe with outputs from new image
-                df_emonet, max_emotion, max_prob = self.update_emonet_df(image_path, df_emonet)
+                df_emonet, max_emotion, max_prob, cam_outputs = self.update_emonet_df(image_path, df_emonet)
 
                 # if len(cam_outputs) > 1:
                 #     raise ValueError("Don't know how to handle multiple CAM outputs for now.\n"
                 #                      "Please make sure you're only using one CAM method at a time.")
 
                 # update yolo dataframe with outputs from new image
-                df_yolo = self.update_yolo_df(image_path, max_emotion, max_prob, df_yolo)#, cam_outputs[0])
+                df_yolo = self.update_yolo_df(image_path, max_emotion, max_prob, df_yolo, cam_outputs[0])
 
                 count_images += 1
                 print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")

@@ -88,7 +88,7 @@ class Processors:
 
 
 class FileProcessor:
-    def __init__(self, model, target_layers, methods=Iterable[Processors], device=torch.device('cpu')):
+    def __init__(self, model, target_layers, methods=Iterable[Processors]):
         self.processors = {}
         for method in methods:
             # method[0] = CAM method, method[1] = process method to be used with CAM method
@@ -113,7 +113,7 @@ class FileProcessor:
         :param file_name:
         :param image_weight:
         :param targets:
-        :return:
+        :return: vis, grayscales
         """
         vis = []
         grayscales = []
