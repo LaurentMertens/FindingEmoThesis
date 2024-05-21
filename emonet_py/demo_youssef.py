@@ -12,12 +12,8 @@ import torch
 from PIL import Image
 from lightnet.models import YoloV3
 from torchvision import transforms
-import matplotlib.pyplot as plt
 
-from img_resize_preproc import ImgResize
-from explanations_emonet import get_visualizations, plot_cam
-
-
+from model_processor.preprocessing.img_resize_preproc import ImgResize
 
 if __name__ == '__main__':
     # Load names of OpenImage classes

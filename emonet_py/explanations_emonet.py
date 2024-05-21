@@ -18,8 +18,6 @@ from explanations_liftcam import CAM_Explanation
 import alexnet_big
 
 
-
-
 def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam: int, eigencam:int, liftcam:int, lrpcam:int, limecam:int,
                        guided: int, image: np.ndarray, model: torch.nn.Module, target_layers: list[torch.nn.Module], input_tensor: torch.Tensor,
                        class_index: int, img_size, file_name: str, image_weight: float = 0.5, targets=None):
@@ -28,7 +26,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camGrad = GradCAM(model, target_layers)
         grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Grad = grayscale_cam_Grad[0, :]
-        np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Grad)
+        # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Grad)
         vis_Cam = show_cam_on_image(image, grayscale_cam_Grad, use_rgb=True, image_weight=image_weight)
         vis.append(["Grad-CAM", vis_Cam])
     if gradcampp==1:
@@ -41,6 +39,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camAbla = AblationCAM(model, target_layers)
         grayscale_cam_Abla = camAbla(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Abla = grayscale_cam_Abla[0, :]
+        # np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Abla)
         vis_Abla = show_cam_on_image(image, grayscale_cam_Abla, use_rgb=True, image_weight=image_weight)
         vis.append(["Ablation-CAM", vis_Abla])
     if scorecam==1:
@@ -53,6 +52,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camEigen = EigenCAM(model, target_layers)
         grayscale_cam_Eigen = camEigen(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Eigen = grayscale_cam_Eigen[0, :]
+        np.save("cam_grad_dataset/cam_grad_"+file_name, grayscale_cam_Eigen)
         vis_Eigen = show_cam_on_image(image, grayscale_cam_Eigen, use_rgb=True, image_weight=image_weight)
         vis.append(["Eigen-CAM", vis_Eigen])
     if liftcam==1:
@@ -168,7 +168,7 @@ class ExplanationsEmonet:
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=1, gradcampp=0, ablationcam=0, scorecam=0, eigencam=0, liftcam=0, lrpcam=0, limecam=0, guided=0,
+        vis = get_visualizations(gradcam=0, gradcampp=0, ablationcam=0, scorecam=0, eigencam=1, liftcam=0, lrpcam=0, limecam=0, guided=0,
                                  image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
                                  class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
         if show_plot:

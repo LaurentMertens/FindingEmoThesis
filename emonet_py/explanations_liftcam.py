@@ -11,6 +11,7 @@ class CAM_Explanation:
     def __init__(self, model, method):
         self.model = model
         self.method = method
+
     def __call__(self, x, class_id, image_size):
         if torch.cuda.is_available():
             x = x.cuda()
@@ -32,6 +33,7 @@ class CAM_Explanation:
         explanation = explanation.detach().cpu()
         explanation = min_max_normalize(explanation)
         return explanation
+
 
 # The later part of a given original prediction model
 class Model_Part(nn.Module):
@@ -66,7 +68,8 @@ class Model_Part(nn.Module):
             x = x.view(x.size(0), -1)
             x = self.classifier(x)
         return x
-    
+
+
 # LIFT-CAM
 def lift_cam(model, x, class_id=None):
     
@@ -108,6 +111,7 @@ def lift_cam(model, x, class_id=None):
     
     return vis_ex_map
 
+
 # LRP-CAM
 def lrp_cam(model, x, class_id=None):
     
@@ -147,6 +151,7 @@ def lrp_cam(model, x, class_id=None):
     vis_ex_map = F.relu(vis_ex_map).float()
     
     return vis_ex_map
+
 
 # LIME-CAM
 def lime_cam(model, x, class_id=None):

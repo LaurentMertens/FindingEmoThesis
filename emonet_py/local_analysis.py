@@ -15,9 +15,9 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import cv2
 
-from img_resize_preproc import ImgResize
-from explanations_emonet import get_visualizations, plot_cam
-from pytorch_grad_cam.utils.image import scale_cam_image, scale_accross_batch_and_channels, show_cam_on_image
+from config import Config
+from model_processor.preprocessing.img_resize_preproc import ImgResize
+from pytorch_grad_cam.utils.image import show_cam_on_image
 
 
 class LocalAnalysis:
@@ -26,7 +26,7 @@ class LocalAnalysis:
 
         # Load names of OpenImage classes
         class_map = []
-        with open("openimages.names", "r") as fin:
+        with open(Config.FILE_OPENIMAGES_CLASSES, "r") as fin:
             for line in fin:
                 line = line.strip()
                 class_map.append(line)
@@ -84,11 +84,23 @@ class LocalAnalysis:
     def local_analysis(self, file_path, file_name, show_output=False):
         """
         Perform local analysis on single image.
+
+        :param file_path: full path to the image to process
+        :param file_name: filename of the image to process
+        :param show_output:
+        :param cam_output: numpy array containing the CAM output
         """
         img_path = os.path.join(file_path)
 
         # load the corresponding grad-cam heatmap
-        grayscale_cam = np.load("cam_grad_dataset/cam_grad_"+file_name+".npy")
+        file_cam = "cam_grad_dataset/cam_grad_"+file_name+".npy"
+        if not os.path.exists(file_cam):
+            raise FileNotFoundError(f"Could not find CAM output for image {file_name}. "
+                                    f"Did you perform the necessary processing beforehand?")
+        cam_output = np.load(file_cam)
+        os.remove(file_cam)
+        print(f"DELETED FILE {file_cam}")
+
         with torch.no_grad():
             with open(img_path, 'rb') as f:
                 img = Image.open(f).convert('RGB')
@@ -96,7 +108,7 @@ class LocalAnalysis:
 
             # resize heatmap to input image
             original_size_img = img.size
-            grayscale_cam = cv2.resize(grayscale_cam, original_size_img)
+            grayscale_cam = cv2.resize(cam_output, original_size_img)
             grayscale_cam_pil = Image.fromarray(grayscale_cam)
             grayscale_cam_tensor = self.transform(grayscale_cam_pil)
             grayscale_cam_scaled = grayscale_cam_tensor.numpy()[0, :]
@@ -117,7 +129,7 @@ class LocalAnalysis:
 
             # rename 'class_label' to 'detected_object' for more clarity later
             df_complete_return = df_complete.rename(columns={'class_label': 'detected_object',
-                                                      'confidence': 'object_confidence'}).sort_values(by="object_importance", ascending=False)
+                                                             'confidence': 'object_confidence'}).sort_values(by="object_importance", ascending=False)
             df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
 
             if show_output:

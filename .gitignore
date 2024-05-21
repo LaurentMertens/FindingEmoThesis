@@ -1,4 +1,5 @@
 .pytest_cache/
+.idea/
 build_utils/
 cam_grad_dataset/
 findingemo_dataset/
@@ -8,3 +9,4 @@ findingemo_dataset/
 *.npy
 *.zip
 *.weights
+/output/

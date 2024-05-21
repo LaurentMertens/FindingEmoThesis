@@ -3,30 +3,18 @@ A test script to create a pipeline that first uses YoLo v3 + OpenImages to detec
 
 .. codeauthor:: Laurent Mertens <laurent.mertens@kuleuven.be>
 """
+
 import os
 
-import brambox as bb
-import lightnet as ln
-import numpy as np
-import torch
-from PIL import Image
-from lightnet.models import YoloV3
-from torchvision import transforms
-import matplotlib
-matplotlib.use('pdf')
-import matplotlib.pyplot as plt
-import cv2
-import signal
-import json
 import PIL
-from img_resize_preproc import ImgResize
-from explanations_emonet import get_visualizations, plot_cam, ExplanationsEmonet
-from pytorch_grad_cam.utils.image import scale_cam_image, scale_accross_batch_and_channels, show_cam_on_image
-from local_analysis import LocalAnalysis
-
-import os
-from PIL import Image
 import pandas as pd
+import torch
+
+from emonet_py.explanations_emonet import ExplanationsEmonet
+from explanations_model import ExplanationsModel
+from local_analysis import LocalAnalysis
+# matplotlib.use('pdf')  # Purely for debugging purposes
+
 
 # header for EmoNet outputs
 df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_emotion_conf', 'emonet_adoration_conf',
@@ -38,6 +26,7 @@ df_emonet_header = ['dir_image_path', 'emonet_emotion', 'emonet_emotion_conf', '
                     'emonet_romance_conf',
                     'emonet_sadness_conf', 'emonet_sexual_desire_conf', 'emonet_surprise_conf', 'emonet_valence',
                     'emonet_arousal']
+
 
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
@@ -52,6 +41,7 @@ class GlobalAnalysis:
         self.device = device
         self.local_analysis = LocalAnalysis(device=device)
         self.expl_emo = ExplanationsEmonet(device=device)
+        # self.expl_emo = ExplanationsModel(device=device, model=model, model_pp=model_pp, target_layers=target_layers)
 
     def update_emonet_df(self, file_path, df_emonet):
         """
@@ -62,7 +52,10 @@ class GlobalAnalysis:
         # define dir_image_path as part of the path containing file and its folder
         dir_image_path = get_dir_image_path(file_path)
         # get outputs of EmoNet
-        max_emotion, max_prob, emotion_tensor, arousal, valence = self.expl_emo.explanations_emonet(file_path, image_name)
+        # max_emotion, max_prob, emotion_tensor, arousal, valence, cam_outputs =\
+        #     self.expl_emo.get_explanations_for_image(file_path, image_name)
+        max_emotion, max_prob, emotion_tensor, arousal, valence =\
+            self.expl_emo.explanations_emonet(file_path, image_name)
         # first elements of the new row are the image path and predicted emotion
         new_row = [dir_image_path, max_emotion, max_prob]
         # append probabilities for the output tensor emotion
@@ -73,9 +66,9 @@ class GlobalAnalysis:
         new_row += [valence, arousal]
         # add the row to the dataframe
         df_emonet.loc[len(df_emonet)] = new_row
-        return df_emonet, max_emotion, max_prob
+        return df_emonet, max_emotion, max_prob#, cam_outputs
 
-    def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo):
+    def update_yolo_df(self, file_path, max_emotion, max_prob, df_yolo):#, cam_output):
         """
         Update the yolo output dataframe with the yolo output of a new image.
         """
@@ -84,7 +77,7 @@ class GlobalAnalysis:
         # define dir_image_path as part of the path containing file and its folder
         dir_image_path = get_dir_image_path(file_path)
         # get new yolo outputs of image
-        new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)
+        new_df_yolo = self.local_analysis.local_analysis(file_path, image_name)#, cam_output=cam_output)
         # insert emotion confidence
         new_df_yolo.insert(0, "emonet_emotion_conf", max_prob, True)
         # insert most probable emotion
@@ -93,9 +86,12 @@ class GlobalAnalysis:
         new_df_yolo.insert(0, "dir_image_path", dir_image_path, True)
         return pd.concat([df_yolo, new_df_yolo], ignore_index=True)
 
-    def save_model_outputs(self, directory):
+    def process_model(self, img_dir, model_out_file='emonet_outputs.csv', yolo_out_file='yolo_outputs.csv'):
         """
         save to two .csv files containing the outputs of EmoNet (and FindingEmo annotations) and Yolov3 respectively
+
+        :param img_dir: root path containing the images to process
+        :return:
         """
         count_images = 0
         # create EmoNet output dataframe with header
@@ -104,7 +100,7 @@ class GlobalAnalysis:
         df_yolo = pd.DataFrame()
 
         # Get image paths
-        image_paths = ga.get_image_paths(directory_path)
+        image_paths = ga.get_image_paths(img_dir)
         nb_images = len(image_paths)
         for image_path in image_paths:
             # Let's be sure
@@ -117,8 +113,12 @@ class GlobalAnalysis:
                 # update emonet dataframe with outputs from new image
                 df_emonet, max_emotion, max_prob = self.update_emonet_df(image_path, df_emonet)
 
+                # if len(cam_outputs) > 1:
+                #     raise ValueError("Don't know how to handle multiple CAM outputs for now.\n"
+                #                      "Please make sure you're only using one CAM method at a time.")
+
                 # update yolo dataframe with outputs from new image
-                df_yolo = self.update_yolo_df(image_path, max_emotion, max_prob, df_yolo)
+                df_yolo = self.update_yolo_df(image_path, max_emotion, max_prob, df_yolo)#, cam_outputs[0])
 
                 count_images += 1
                 print(f"Progression: {(count_images / nb_images) * 100:0.2f}%")
@@ -127,15 +127,15 @@ class GlobalAnalysis:
                 continue
             if count_images % 200 == 0:
                 print('Saving progress...')
-                df_emonet.to_csv('emonet_outputs')
-                df_yolo.to_csv('yolo_outputs')
-                print('emonet_outputs and df_yolo saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'')
+                df_emonet.to_csv(model_out_file)
+                df_yolo.to_csv(yolo_out_file)
+                print(f'emonet_outputs and df_yolo saved to \'{model_out_file}\' and \'{yolo_out_file}\'')
 
         # save emonet_ann outputs dataframe as .csv
-        df_emonet.to_csv('emonet_outputs')
+        df_emonet.to_csv(model_out_file)
         # safe yolo outputs dataframe as .csv
-        df_yolo.to_csv('yolo_outputs')
-        print('emonet_outputs and yolo_outputs saved to \'emonet_outputs.csv\' and \'yolo_outputs.csv\'...')
+        df_yolo.to_csv(yolo_out_file)
+        print(f'emonet_outputs and df_yolo saved to \'{model_out_file}\' and \'{yolo_out_file}\'')
 
         return count_images
 
@@ -201,5 +201,6 @@ if __name__ == '__main__':
     # Sanity check
     print(f"Total number of image paths: {len(ga.get_image_paths(directory_path))}")
     # save model outputs & get number of images actually processed
-    nb_img_processed = ga.save_model_outputs(directory_path)
+    nb_img_processed = ga.process_model(directory_path, model_out_file='emonet_outputs_eigen.csv',
+                                        yolo_out_file='yolo_outputs_eigen.csv')
     print("Total number of images processed: ", nb_img_processed)
