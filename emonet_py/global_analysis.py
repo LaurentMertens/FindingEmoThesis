@@ -125,7 +125,7 @@ class GlobalAnalysis:
             except PIL.UnidentifiedImageError as e:
                 print(f'Error processing: {image_path}:\n\t{e}')
                 continue
-            if count_images % 200 == 0:
+            if count_images % 500 == 0:
                 print('Saving progress...')
                 df_emonet.to_csv(model_out_file)
                 df_yolo.to_csv(yolo_out_file)
@@ -201,6 +201,6 @@ if __name__ == '__main__':
     # Sanity check
     print(f"Total number of image paths: {len(ga.get_image_paths(directory_path))}")
     # save model outputs & get number of images actually processed
-    nb_img_processed = ga.process_model(directory_path, model_out_file='emonet_outputs_eigen.csv',
-                                        yolo_out_file='yolo_outputs_eigen.csv')
+    nb_img_processed = ga.process_model(directory_path, model_out_file='emonet_outputs_lrp.csv',
+                                        yolo_out_file='yolo_outputs_lrp.csv')
     print("Total number of images processed: ", nb_img_processed)

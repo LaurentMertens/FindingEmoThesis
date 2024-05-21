@@ -11,6 +11,8 @@ import torch
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, ScoreCAM, AblationCAM, EigenCAM, guided_backprop
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
+from emonet_py.explanations_liftcam import CAM_Explanation
+
 
 class Processors:
     # BEWARE! CONSTANT FIELDS ARE DEFINED AT THE BOTTOM, SO AS TO BE ABE TO REFERENCE THESE FOLLOWING METHODS
@@ -82,8 +84,8 @@ class Processors:
     ABLATIONCAM = (AblationCAM, process_type_a)
     SCORECAM = (ScoreCAM, process_type_a)
     EIGENCAM = (EigenCAM, process_type_a)
-#    LIFTCAM = (CAM_Explanation, {'method': 'LIFT_CAM'})
-#    LRPCAM = (CAM_Explanation, {'method': 'LRP-CAM'})
+    LIFTCAM = ((CAM_Explanation, {'method': 'LIFT-CAM'}), process_type_b)
+    LRPCAM = ((CAM_Explanation, {'method': 'LRP-CAM'}), process_type_b)
 #    LIMECAM = (CAM_Explanation, {'method': 'LIME-CAM'})
 
 
@@ -91,10 +93,17 @@ class FileProcessor:
     def __init__(self, model, target_layers, methods=Iterable[Processors]):
         self.processors = {}
         for method in methods:
-            # method[0] = CAM method, method[1] = process method to be used with CAM method
-            proc_name = str(method[0])
-            processor = method[0](model=model, target_layers=target_layers)
-            self.processors[proc_name] = (processor, method[1])
+            if isinstance(method[0], tuple):
+                # method[0] = (CAM method, parameters), method[1] = process method to be used with CAM method
+                proc_name, proc_params = str(method[0][0]), method[0][1]
+                proc_params['model'] = model
+                processor = method[0][0](**proc_params)
+                self.processors[proc_name] = (processor, method[1])
+            else:
+                # method[0] = CAM method, method[1] = process method to be used with CAM method
+                proc_name = str(method[0])
+                processor = method[0](model=model, target_layers=target_layers)
+                self.processors[proc_name] = (processor, method[1])
 
     def get_visualizations(self, image: np.ndarray,
                            input_tensor: torch.Tensor,

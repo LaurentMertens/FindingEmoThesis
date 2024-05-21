@@ -137,7 +137,7 @@ class ExplanationsEmonet:
         self.emonet_valence = EmoNetValence().to(device)
         self.file_processor = FileProcessor(model=self.emonet.emonet,
                                             target_layers=[self.emonet.emonet.conv5],
-                                            methods=[Processors.EIGENCAM])
+                                            methods=[Processors.LRPCAM])
 
     def get_most_probable_class(self, preds: torch.Tensor):
         max_prob = preds[0][0]

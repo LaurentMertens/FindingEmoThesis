@@ -1,9 +1,10 @@
 import torch, torchvision
 import torch.nn.functional as F
 import torch.nn as nn
-from lift_utils import min_max_normalize
-# from captum.attr import DeepLift, LRP, Lime
-import alexnet_big
+from captum.attr import DeepLift, LRP, Lime
+
+from emonet_py import alexnet_big
+from emonet_py.lift_utils import min_max_normalize
 
 
 # The implementations of LIFT-CAM, LRP-CAM, and LIME-CAM
@@ -49,7 +50,7 @@ class Model_Part(nn.Module):
             self.model_type = "resnet50"
             self.avg_pool = model.avgpool
             self.classifier = model.fc
-        elif isinstance(model, alexnet_big.AlexNetBigEmoNet):
+        elif model.__class__.__name__ == 'AlexNetBigEmoNet':
             self.model_type = "emonet"
             self.classifier = [model.fc1, model.fc2, model.fc3]
             self.max_pool = model.maxpool
@@ -82,10 +83,10 @@ def lift_cam(model, x, class_id=None):
         handle = model.features[-2].register_forward_hook(forward_hook)
     elif isinstance(model, torchvision.models.resnet.ResNet):
         handle = model.layer4.register_forward_hook(forward_hook)
-    elif isinstance(model, alexnet_big.AlexNetBigEmoNet):
+    elif model.__class__.__name__ == 'AlexNetBigEmoNet':
         handle = model.conv5.register_forward_hook(forward_hook)
     else:
-        raise Exception("Not supported architecture.")
+        raise Exception(f"Not supported architecture: {model}")
         
     output = model(x)
 
@@ -124,7 +125,7 @@ def lrp_cam(model, x, class_id=None):
         handle = model.features[-2].register_forward_hook(forward_hook)
     elif isinstance(model, torchvision.models.resnet.ResNet):
         handle = model.layer4.register_forward_hook(forward_hook)
-    elif isinstance(model, alexnet_big.AlexNetBigEmoNet):
+    elif model.__class__.__name__ == 'AlexNetBigEmoNet':
         handle = model.conv5.register_forward_hook(forward_hook)
     else:
         raise Exception("Not supported architecture.")
